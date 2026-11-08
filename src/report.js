@@ -106,19 +106,25 @@ export function renderTerminal(model, { color = true } = {}) {
   L.push("");
 
   const hasProbe = rows.some((r) => r.probe);
+  const hasNative = rows.some((r) => r.native);
+  const hasBl = rows.some((r) => r.blHits?.length);
   const cols = {
     i: 4,
-    name: hasProbe ? 22 : 28,
+    name: hasBl ? 18 : hasNative ? 20 : hasProbe ? 22 : 28,
     proto: 10,
     ip: 16,
     type: 10,
     lat: 7,
     probe: hasProbe ? 19 : 0,
+    native: hasNative ? 5 : 0,
+    bl: hasBl ? 6 : 0,
   };
   const head =
     `${pad("#", cols.i)} ${pad("节点", cols.name)} ${pad("协议", cols.proto)} ` +
     `${pad("出口 IP", cols.ip)} ${pad("类型", cols.type)} ${pad("延迟", cols.lat, "right")}` +
     (hasProbe ? ` ${pad("出口验证", cols.probe)}` : "") +
+    (hasNative ? ` ${pad("原生", cols.native)}` : "") +
+    (hasBl ? ` ${pad("黑名单", cols.bl)}` : "") +
     `  纯净度`;
   L.push(d("   " + head));
   L.push(d("   " + "─".repeat(displayWidth(head) + 2)));
@@ -134,6 +140,14 @@ export function renderTerminal(model, { color = true } = {}) {
       : r.probe.ok
         ? green(probeP)
         : red(probeP);
+    const nativeP = r.native || "—";
+    const nativeC = !r.native
+      ? d("—")
+      : r.native === "原生"
+        ? green(nativeP)
+        : red(nativeP);
+    const blP = r.blHits?.length ? `⚠ ${r.blHits.length}` : "—";
+    const blC = r.blHits?.length ? red(blP) : d("—");
     const scoreText =
       r.score == null ? "  — —" : `${String(r.score).padStart(3)} ${r.grade}`;
     const scoreCell =
@@ -143,6 +157,8 @@ export function renderTerminal(model, { color = true } = {}) {
         `${d(pad(r.proto, cols.proto))} ${padColor(ip, ipCell, cols.ip)} ` +
         `${pad(r.type, cols.type)} ${padColor(latencyPlain(r), lat, cols.lat)}` +
         (hasProbe ? ` ${padColor(probeP, probeC, cols.probe)}` : "") +
+        (hasNative ? ` ${padColor(nativeP, nativeC, cols.native)}` : "") +
+        (hasBl ? ` ${padColor(blP, blC, cols.bl)}` : "") +
         `  ${scoreCell}`,
     );
   });
@@ -168,6 +184,8 @@ export function buildReportHtml(model) {
   const avg = summary.avgScore ?? 0;
   const ringColor = avg >= 75 ? "#3fb96f" : avg >= 60 ? "#d9a13c" : "#d95c4a";
   const hasProbe = rows.some((r) => r.probe);
+  const hasNative = rows.some((r) => r.native);
+  const hasBl = rows.some((r) => r.blHits?.length);
   const rowsHtml = rows
     .map(
       (r, i) => `
@@ -181,6 +199,8 @@ export function buildReportHtml(model) {
         <td><span class="tag t-${r.type === "机房" ? "dc" : r.type === "移动" ? "mo" : "rs"}">${esc(r.type)}</span></td>
         <td class="lat">${r.latencyMs == null ? "—" : r.latencyMs + "ms"}</td>
         ${hasProbe ? `<td class="pr ${r.probe.ok ? "p-ok" : "p-bad"}">${esc(r.probe.ok ? `✓ ${r.probe.exitIp || "ok"}` : `✗ ${r.probe.err || "failed"}`)}</td>` : ""}
+        ${hasNative ? `<td class="nv ${r.native === "原生" ? "p-ok" : r.native === "广播" ? "p-bad" : ""}">${esc(r.native || "—")}</td>` : ""}
+        ${hasBl ? `<td class="pr ${r.blHits?.length ? "p-bad" : ""}">${esc(r.blHits?.length ? `⚠ ${r.blHits.length}` : "—")}</td>` : ""}
         <td class="sc${r.score == null ? "" : ` s-${esc(r.grade)}`}">${r.score == null ? "—" : `${r.score} <b>${esc(r.grade)}</b>`}</td>
       </tr>`,
     )
@@ -219,6 +239,7 @@ export function buildReportHtml(model) {
   tr:hover td { background: #151b24; }
   .idx, .lat, .sc { text-align: right; } .idx { color: #7d8590; }
   .pr { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; }
+  .nv { font-size: 12px; }
   .p-ok { color: #3fb96f; } .p-bad { color: #d95c4a; }
   .proto { color: #7d8590; }
   .ip { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
@@ -247,11 +268,13 @@ export function buildReportHtml(model) {
       <span class="chip">机房 <b>${summary.hosting}</b></span>
       <span class="chip">移动 <b>${summary.mobile}</b></span>
       ${summary.probedTotal ? `<span class="chip${summary.probedOk < summary.probedTotal ? " warn" : ""}">实测可用 <b>${summary.probedOk}/${summary.probedTotal}</b></span>` : ""}
+      ${summary.nativeCount || summary.broadcastCount ? `<span class="chip">原生 <b>${summary.nativeCount}</b> · 广播 <b>${summary.broadcastCount}</b></span>` : ""}
+      ${summary.blListed ? `<span class="chip warn">黑名单命中 <b>${summary.blListed}</b></span>` : ""}
       ${summary.failed ? `<span class="chip warn">解析失败 <b>${summary.failed}</b></span>` : ""}
     </div>
   </div>
   <table>
-    <thead><tr><th>#</th><th>节点</th><th>协议</th><th>出口 IP</th><th>国家</th><th>ISP</th><th>类型</th><th class="lat">延迟</th>${hasProbe ? "<th class=\"lat\">出口验证</th>" : ""}<th class="sc">纯净度</th></tr></thead>
+    <thead><tr><th>#</th><th>节点</th><th>协议</th><th>出口 IP</th><th>国家</th><th>ISP</th><th>类型</th><th class="lat">延迟</th>${hasProbe ? "<th class=\"lat\">出口验证</th>" : ""}${hasNative ? "<th>原生</th>" : ""}${hasBl ? "<th>黑名单</th>" : ""}<th class="sc">纯净度</th></tr></thead>
     <tbody>${rowsHtml}
     </tbody>
   </table>

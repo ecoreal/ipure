@@ -21,6 +21,8 @@ import {
   defaultHistoryDir,
 } from "./history.js";
 import { probeNode, probeSupported } from "./probe.js";
+import { checkBlacklistBatch } from "./blacklist.js";
+import { lookupRdapBatch, nativenessOf } from "./rdap.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -37,6 +39,7 @@ const VALUE_FLAGS = new Set([
   "--sort",
   "--tries",
   "--history-dir",
+  "--fail-under",
 ]);
 
 function usage(code = 0) {
@@ -56,6 +59,9 @@ function usage(code = 0) {
   --json <file|->      JSON 输出到文件或 stdout
   --sort <key>         score | order (默认 order, 按订阅原序)
   --probe              出口验证：真实穿透 http/socks5 节点，验证可用性与实际出口 IP
+  --blacklist          DNSBL 黑名单查询（3 个宽容区，质量取决于本机解析器）
+  --no-rdap            跳过 RIR 原生/广播判定
+  --fail-under <n>     平均纯净度低于 n 时以非零码退出（CI/定时任务告警）
   --no-latency         跳过 TCP 延迟测量
   --timeout <ms>       单项超时 (默认 3000)
   --conc <n>           并发数 (默认 8)
@@ -216,6 +222,23 @@ async function buildSubModel(source, flags) {
     more.forEach((v, k) => results.set(k, v));
   }
 
+  // Blacklist (--blacklist, opt-in: DNSBL quality depends on the resolver)
+  // and RIR registration lookups (native/broadcast) run on effective exits.
+  const effIps = [...new Set(nodes.map(effIpOf).filter(Boolean))];
+  let blMap = new Map();
+  if (flags.blacklist && effIps.length) {
+    step(`黑名单查询 ${effIps.length} 个出口（DNSBL × 3 区）…`);
+    blMap = await checkBlacklistBatch(effIps, { conc: Number(flags.conc) || 8 });
+    const listed = [...blMap.values()].filter((h) => h.length).length;
+    step(`黑名单命中 ${listed}/${effIps.length}`);
+  }
+  let rdapMap = new Map();
+  if (!flags["no-rdap"] && effIps.length) {
+    step(`RIR 注册地查询 ${effIps.length} 个出口…`);
+    rdapMap = await lookupRdapBatch(effIps, { conc: 4 });
+    step("RIR 查询完成");
+  }
+
   // dupCount: nodes sharing the same effective exit IP (the "burned" signal).
   const ipDup = new Map();
   for (const n of nodes) {
@@ -227,7 +250,14 @@ async function buildSubModel(source, flags) {
     const ip = effIpOf(n);
     const info = ip ? results.get(ip) : null;
     const dupCount = ip ? ipDup.get(ip) || 1 : 1;
-    const scored = purityScore(info, { dupCount });
+    const blHits = ip ? blMap.get(ip) || [] : [];
+    const rir = ip ? rdapMap.get(ip) || null : null;
+    const native = rir ? nativenessOf(rir.country, info?.ok ? info.cc : null) : null;
+    const scored = purityScore(info, {
+      dupCount,
+      blacklistHits: blHits.length,
+      native,
+    });
     const lat = latencyMap.get(`${n.host}:${n.port}`);
     const probe = probeMap.get(`${n.host}:${n.port}:${n.username || ""}`) || null;
     return {
@@ -252,6 +282,10 @@ async function buildSubModel(source, flags) {
       note: info?.ok ? gradeOf(scored.score).note : "未测得",
       reasons: info?.ok ? scored.reasons : [],
       resolved: !!ip,
+      rirCountry: rir?.country || null,
+      rirName: rir?.name || null,
+      native,
+      blHits,
       // Credentials never make it into rows — only the verdict does.
       probe: probe
         ? {
@@ -272,6 +306,9 @@ async function buildSubModel(source, flags) {
   const probed = rows.filter((r) => r.probe);
   const probeOk = probed.filter((r) => r.probe.ok).length;
   const noExit = rows.filter((r) => !r.ip).length;
+  const nativeCount = scored.filter((r) => r.native === "原生").length;
+  const broadcastCount = scored.filter((r) => r.native === "广播").length;
+  const blListed = scored.filter((r) => r.blHits?.length).length;
   const summary = {
     nodes: rows.length,
     servers: byHost.size,
@@ -286,6 +323,9 @@ async function buildSubModel(source, flags) {
     failed: noExit,
     probedOk: probeOk,
     probedTotal: probed.length,
+    nativeCount,
+    broadcastCount,
+    blListed,
     topClean: [...scored]
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
@@ -298,6 +338,12 @@ async function buildSubModel(source, flags) {
             `实测可用 ${probeOk}/${probed.length}${probeOk < probed.length ? "（失败多为限流/凭据/协议问题，几分钟后可重试）" : ""}`,
           ]
         : []),
+      ...(scored.some((r) => r.native)
+        ? [
+            `原生 ${nativeCount}/广播 ${broadcastCount}：RIR 注册地与使用地一致为原生（+5），不一致为广播（-8）`,
+          ]
+        : []),
+      ...(blListed ? [`DNSBL 黑名单命中 ${blListed} 个出口，每项 -8（封顶 -24）`] : []),
       ...(noExit ? [`${noExit} 个节点无有效出口，未参与纯净度评分`] : []),
     ],
   };
@@ -320,7 +366,9 @@ function diffNotes(diff) {
 
 async function cmdSub(source, flags) {
   if (!source) fail("sub 需要一个订阅源：URL、本地文件路径或 - (stdin)");
-  emit(await buildSubModel(source, flags), flags, `ipure-report-${safeFileName(source)}`);
+  const model = await buildSubModel(source, flags);
+  emit(model, flags, `ipure-report-${safeFileName(source)}`);
+  applyFailUnder(model, flags);
 }
 
 async function cmdWatch(source, flags) {
@@ -335,6 +383,7 @@ async function cmdWatch(source, flags) {
     process.stderr.write(`▸ 快照已保存 ${file}\n`);
   }
   emit(model, flags, `ipure-watch-${safeFileName(source)}`);
+  applyFailUnder(model, flags);
 }
 
 function clipName(s) {
@@ -373,12 +422,30 @@ async function cmdCheck(targets, flags) {
   step(`检测 ${ips.length} 个 IP (${provider})…`);
   const results = await checkIps(ips, { provider, token: flags.token });
 
+  let blMap = new Map();
+  if (flags.blacklist && ips.length) {
+    step(`黑名单查询 ${ips.length} 个 IP（DNSBL × 3 区）…`);
+    blMap = await checkBlacklistBatch(ips, { conc: Number(flags.conc) || 8 });
+  }
+  let rdapMap = new Map();
+  if (!flags["no-rdap"] && ips.length) {
+    step(`RIR 注册地查询 ${ips.length} 个 IP…`);
+    rdapMap = await lookupRdapBatch(ips, { conc: 4 });
+  }
+
   const dup = new Map();
   for (const e of entries) if (e.ip) dup.set(e.ip, (dup.get(e.ip) || 0) + 1);
 
   const rows = entries.map((e, idx) => {
     const info = e.ip ? results.get(e.ip) : null;
-    const scored = purityScore(info, { dupCount: e.ip ? dup.get(e.ip) : 1 });
+    const blHits = e.ip ? blMap.get(e.ip) || [] : [];
+    const rir = e.ip ? rdapMap.get(e.ip) || null : null;
+    const native = rir ? nativenessOf(rir.country, info?.ok ? info.cc : null) : null;
+    const scored = purityScore(info, {
+      dupCount: e.ip ? dup.get(e.ip) : 1,
+      blacklistHits: blHits.length,
+      native,
+    });
     return {
       idx,
       name: e.target,
@@ -399,6 +466,11 @@ async function cmdCheck(targets, flags) {
       note: info?.ok ? gradeOf(scored.score).note : "未测得",
       reasons: info?.ok ? scored.reasons : [],
       resolved: !!e.ip,
+      rirCountry: rir?.country || null,
+      rirName: rir?.name || null,
+      native,
+      blHits,
+      probe: null,
     };
   });
 
@@ -417,12 +489,26 @@ async function cmdCheck(targets, flags) {
       hosting: scored.filter((r) => r.type === "机房").length,
       mobile: scored.filter((r) => r.type === "移动").length,
       failed: rows.filter((r) => !r.resolved).length,
+      probedOk: 0,
+      probedTotal: 0,
+      nativeCount: scored.filter((r) => r.native === "原生").length,
+      broadcastCount: scored.filter((r) => r.native === "广播").length,
+      blListed: scored.filter((r) => r.blHits?.length).length,
       topClean: [],
       notes: [],
     },
     rows,
   };
   emit(model, flags, "ipure-check");
+  applyFailUnder(model, flags);
+}
+
+function applyFailUnder(model, flags) {
+  const fu = Number(flags["fail-under"]);
+  if (Number.isFinite(fu) && fu > 0 && model.summary.avgScore < fu) {
+    process.exitCode = 1;
+    process.stderr.write(`⚠ 平均分 ${model.summary.avgScore} 低于阈值 ${fu}（--fail-under）\n`);
+  }
 }
 
 // ------------------------------------------------------------------- emit

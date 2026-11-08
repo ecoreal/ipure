@@ -7,10 +7,13 @@ const PENALTY = {
   proxy: 20, // flagged as proxy/VPN/Tor/relay by a risk database
   risk: 25, // provider risk score >= 75 (scaled below)
   dup: 15, // many nodes share this exit IP (capped, -3 per extra node)
+  blacklist: 24, // DNSBL hits, -8 per zone (capped)
+  broadcast: 8, // registered region ≠ used region
 };
 
 const BONUS = {
   mobile: 5, // carrier-grade mobile exit — about as clean as it gets
+  native: 5, // registered region == used region ("原生")
 };
 
 export function purityScore(info, extras = {}) {
@@ -30,6 +33,26 @@ export function purityScore(info, extras = {}) {
     const delta = risk >= 75 ? -PENALTY.risk : risk >= 50 ? -15 : -8;
     score += delta;
     reasons.push({ label: `风险分 ${risk}`, delta });
+  }
+  const bl = Number(extras.blacklistHits);
+  if (Number.isFinite(bl) && bl > 0) {
+    const delta = -Math.min(PENALTY.blacklist, bl * 8);
+    score += delta;
+    reasons.push({ label: `DNSBL 黑名单命中 ${bl} 项`, delta });
+  }
+  // Accept both boolean and the rendered "原生"/"广播" forms.
+  const native =
+    extras.native === true || extras.native === "原生"
+      ? true
+      : extras.native === false || extras.native === "广播"
+        ? false
+        : null;
+  if (native === true) {
+    score += BONUS.native;
+    reasons.push({ label: "原生 IP（注册地与使用地一致）", delta: +BONUS.native });
+  } else if (native === false) {
+    score -= PENALTY.broadcast;
+    reasons.push({ label: "广播 IP（注册地与使用地不一致）", delta: -PENALTY.broadcast });
   }
   const dup = Number(extras.dupCount);
   if (Number.isFinite(dup) && dup > 1) {

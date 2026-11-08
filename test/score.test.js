@@ -28,6 +28,29 @@ test("mobile bonus is capped at 100", () => {
   assert.ok(r.reasons.some((x) => x.label.includes("移动")));
 });
 
+test("blacklist hits: -8 per zone, capped at -24", () => {
+  assert.equal(purityScore({}, { blacklistHits: 1 }).score, 92);
+  assert.equal(purityScore({}, { blacklistHits: 2 }).score, 84);
+  assert.equal(purityScore({}, { blacklistHits: 3 }).score, 76);
+  assert.equal(purityScore({}, { blacklistHits: 10 }).score, 76);
+  assert.ok(purityScore({}, { blacklistHits: 10 }).reasons.some((x) => x.label.includes("黑名单")));
+});
+
+test("native +5, broadcast -8, unknown nothing", () => {
+  assert.equal(purityScore({}, { native: true }).score, 100);
+  assert.equal(purityScore({}, { native: false }).score, 92);
+  assert.equal(purityScore({}, { native: null }).score, 100);
+});
+
+test("combined signals stack additively", () => {
+  // hosting -35, broadcast -8, blacklist 1 -8, dup(2) -3, mobile +5
+  const r = purityScore(
+    { hosting: true, mobile: true },
+    { native: false, blacklistHits: 1, dupCount: 2 },
+  );
+  assert.equal(r.score, 51);
+});
+
 test("duplicate exit IPs get progressively penalised, capped at -15", () => {
   assert.equal(purityScore({}, { dupCount: 2 }).score, 97);
   assert.equal(purityScore({}, { dupCount: 3 }).score, 94);
