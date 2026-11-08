@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.0.0 — 2026-11-08
+
+First stable release. One local pass now answers four independent questions:
+
+1. **How clean is this IP?** — itemised purity score (datacenter/proxy/risk,
+   DNSBL hits, mobile/native bonuses)
+2. **Does my node actually work right now?** — `--probe` real-traffic exit
+   verification for http/socks5, scored on the verified exit
+3. **Who am I sharing it with?** — duplicate-exit detection
+4. **Is it native or broadcast?** — RIR registration vs usage region
+
+Plus: score history (`watch`), shareable HTML/PNG cards, JSON, CI-friendly
+`--fail-under`. Zero dependencies, 84 network-free tests, CI on Node
+18/20/22/24, npm release automation on `v*` tags.
+
+## 0.5.0 — 2026-11-08
+
+- **`--blacklist`** — DNSBL hits across 3 permissive zones (−8/zone, cap −24);
+  resolver injectable; results honest about resolver dependence.
+- **Native/broadcast detection** — RIR registration data via RDAP
+  (rdap.org bootstrap, /24 negative cache, ARIN registrant-vcard country
+  recovery through `Intl.DisplayNames`): native +5, broadcast −8, failures
+  degrade to "unknown" silently.
+- **`--fail-under <n>`** — non-zero exit when average purity drops below a
+  threshold (CI/timer alerting).
+- Native/黑名单 columns in terminal and HTML reports, summary chips.
+- Probe/HTTP requests sent as HTTP/1.0 (no chunked surprises).
+- 15 new tests (84 total).
+
 ## 0.4.0 — 2026-11-08
 
 - **`--probe` exit verification** — sends real traffic through `http`/`https`/

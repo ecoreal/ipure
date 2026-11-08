@@ -1,3 +1,5 @@
+<div align="center">
+
 # ⏱ ipure
 
 **Is your IP fresh or burned? Paste a list, get the verdict — locally, in seconds.**
@@ -5,41 +7,37 @@
 [![CI](https://github.com/ecoreal/ipure/actions/workflows/ci.yml/badge.svg)](https://github.com/ecoreal/ipure/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-339933)](package.json)
-[![零依赖](https://img.shields.io/badge/dependencies-0-339933)](package.json)
+[![dependencies](https://img.shields.io/badge/dependencies-0-339933)](package.json)
+[![tests](https://img.shields.io/badge/tests-84-5ba1f0)](#development)
 
-[中文说明](README.zh-CN.md)
+[中文说明](README.zh-CN.md) · [在线示例报告](https://ecoreal.github.io/ipure/demo-report.html)
+
+**Purity scoring · Exit verification · Duplicate exits · Native/Broadcast · DNSBL · Latency · Share cards**
+
+</div>
 
 ```console
-$ ipure sub "https://example.com/api/subscribe?token=xxx" --html report.html
+$ npx ipure check 8.8.8.8 1.1.1.1
 
-⏱  ipure · IP 纯净度体检
-   2026/11/8 19:44:13 · provider: ip-api · 源: demo/example-sub.txt
-
-   节点 5 · 服务器 5 · 独立出口 IP 5
-   纯净度 ▇▇▇▇▇▇░░░░ 61/100 · 家宽 0 · 机房 5 · 移动 0
-   最干净: Cloudflare-443 (65) · Cloudflare-Web (65) · Fastly-CDN (65)
-
-   #    节点              协议      出口 IP           类型      延迟  纯净度
-   ──────────────────────────────────────────────────────────────────────────
-   1    Google-DNS-443    trojan         8.8.8.8 机房       1ms   45 C
-   2    Cloudflare-443    ss             1.1.1.1 机房       0ms   65 B
-   3    Cloudflare-Web    trojan  104.16.132.229 机房       0ms   65 B
-   ...
+   #    节点        协议   出口 IP    类型    延迟  原生    纯净度
+   1    8.8.8.8     -      8.8.8.8   机房     —    原生    50 C
+   2    1.1.1.1     -      1.1.1.1   机房     —    原生    70 B
 ```
 
-IP-quality web tools are great — until an entire forum shares one API quota and
-everything rate-limits by noon. **ipure runs the batch check on your machine,
-against your own quota.** Paste a subscription link (or a file, or a list of
-IPs on stdin) and get:
+IP-quality web tools are great — until an entire forum shares one API quota
+and everything rate-limits by noon, and none of them can ever answer the two
+questions that matter most about *your own* setup: **does this node actually
+work right now**, and **which exit IP does it really use**.
 
-- **Purity score 0–100** per exit IP — datacenter/proxy/risk penalties, mobile bonus, fully itemised
-- **The "burned IP" signal** — how many clients secretly share one exit IP (the real reason an IP keeps getting flagged)
-- **Exit verification** — `--probe` sends real traffic through `http`/`socks5` nodes (auth included) and confirms the node works *right now*, then scores the purity of the **actual exit IP**, not the gateway. Purity ≠ availability; web checkers can't test your nodes at all
-- **TCP latency** per server, median of 3 tries
-- **Score history** — `ipure watch` snapshots every run and diffs scores against the previous one; wire it to a cron/systemd timer and you get an IP quality curve
-- **A shareable report card** — standalone HTML, optionally screenshotted to PNG by your local Chromium
+**ipure runs everything on your machine, against your own quota:**
 
-No account, no config, zero npm dependencies, one file of Node.
+- **Purity score 0–100** — datacenter/proxy/risk penalties, DNSBL hits, mobile & native bonuses. Every point itemised, zero black box
+- **Exit verification** (`--probe`) — real traffic through `http`/`socks5` nodes (auth included): is the node alive *today*, and which IP actually exits
+- **Duplicate-exit detection** — how many clients secretly share one exit IP
+- **Native / Broadcast** — RIR registration region vs usage region, the streaming-unlock people's favourite signal
+- **DNSBL blacklists** (`--blacklist`) — 3 permissive zones, opt-in
+- **Score history** — `ipure watch` snapshots every run and diffs against the last; wire it to a timer and you have a quality curve
+- **Share cards** — standalone HTML, PNG via local Chromium, JSON
 
 ![report card](docs/screenshot.png)
 
@@ -51,44 +49,41 @@ npm install -g ipure
 npx ipure check 8.8.8.8 1.1.1.1
 ```
 
-Requires Node ≥ 18.17. Nothing else.
+Requires Node ≥ 18.17. Nothing else — zero npm dependencies.
 
 ## Usage
 
 ```bash
-# Full subscription health check (URL, local file, or stdin "-")
+# Full subscription health check (Clash/Mihomo YAML, URI list, base64, stdin "-")
 ipure sub "https://provider.example/subscribe?token=xxx"
-ipure sub ./clash-overview.txt --html report.html --png report.png
-ipure sub - < nodes.txt --json -
-
-# Track quality over time — snapshot + diff on every run
-ipure watch ./clash-overview.txt --history-dir ~/.ipure/history
+ipure sub ./config.yaml --html report.html --png report.png
 
 # Verify nodes actually work and score the real exit IPs (http/socks5)
-ipure sub ./isp-proxies.yaml --probe --html report.html --png report.png
+ipure sub ./isp-proxies.yaml --probe
 
-# Check IPs (or hostnames) directly
-ipure check 8.8.8.8 1.1.1.1
-ipure check 73.0.0.1 223.5.5.5 --json out.json
-cat suspicious-ips.txt | ipure check
+# Track quality over time — snapshot + diff on every run
+ipure watch ./config.yaml --history-dir ~/.ipure/history
+
+# Check IPs directly
+ipure check 8.8.8.8 1.1.1.1 73.0.0.1
+cat suspicious-ips.txt | ipure check --blacklist
+
+# CI / timers: exit non-zero when average purity drops below a threshold
+ipure watch ./config.yaml --fail-under 60
 ```
 
 | Option | Meaning |
 |---|---|
-| `--provider <name>` | `ip-api` (default, no key) · `ipinfo` (set `IPINFO_TOKEN`) |
-| `--html <file>` | standalone shareable HTML card |
-| `--png <file>` | also screenshot the card via local Chromium (`IPURE_CHROME` to override) |
-| `--json <file\|->` | machine-readable output |
-| `--sort score` | sort by purity instead of subscription order |
 | `--probe` | real-traffic exit verification for `http`/`https`/`socks5` nodes |
-| `--no-latency` | skip TCP ping |
-| `--timeout <ms>` / `--conc <n>` | per-op timeout (default 3000) / concurrency (default 8) |
-| `--history-dir <dir>` / `--no-history` | `watch` snapshot dir (default `~/.ipure/history`) / disable snapshots |
-| `--no-color` | plain output |
+| `--blacklist` | DNSBL queries (3 permissive zones; quality depends on your resolver) |
+| `--no-rdap` | skip native/broadcast detection |
+| `--fail-under <n>` | exit code 1 when average purity < n |
+| `--provider <name>` | `ip-api` (default, no key) · `ipinfo` (set `IPINFO_TOKEN`) |
+| `--html <file>` / `--png <file>` | shareable card / Chromium screenshot (`IPURE_CHROME` to override) |
+| `--json <file\|->` | machine-readable output |
+| `--sort score` · `--no-latency` · `--timeout <ms>` · `--conc <n>` · `--no-color` | the usual knobs |
 
 ## The score, itemised
-
-Every point is explainable — no black box, no vibes:
 
 | Signal | Delta | Why |
 |---|---|---|
@@ -96,40 +91,56 @@ Every point is explainable — no black box, no vibes:
 | Datacenter (hosting) | **−35** | VPS/cloud ranges are cheap and shared |
 | Flagged as proxy/VPN/Tor | **−20** | already in a risk database |
 | Provider risk score ≥75 / ≥50 / ≥25 | **−25 / −15 / −8** | scaled by severity |
-| N nodes share one exit IP | **−3 × (N−1), cap −15** | the "burned IP" tax |
+| DNSBL hit per zone (opt-in) | **−8, cap −24** | history of abuse reports |
+| N clients share one exit IP | **−3 × (N−1), cap −15** | the "burned IP" tax |
+| Broadcast (registered ≠ used region) | **−8** | announced somewhere else than registered |
 | Mobile carrier exit | **+5** | about as clean as it gets |
+| Native (registered = used region) | **+5** | RIR data agrees with geography |
 
 Grades: **S** ≥90 native-grade clean · **A** ≥75 · **B** ≥60 usable · **C** ≥40 already flagged · **D** <40 swap it.
 
-## Subscription formats
+## Why local-first
 
-**Clash/Mihomo YAML** (the `proxies:` section, inline-flow and block styles) or
-plain URI lists / whole-body base64, one node per line:
-`ss://` (SIP002 + legacy) · `vmess://` · `vless://` · `trojan://` ·
-`hysteria2://`/`hy2://` · `tuic://` · `ssr://`
-
-Only the **server address** is extracted for measurement — credentials are
-parsed and discarded.
+| | Web IP-quality sites | ipure |
+|---|---|---|
+| API quota | shared with everyone, dies at noon | yours, local |
+| Your node's live availability | impossible | `--probe` |
+| The *real* exit of credential-pinned proxies | impossible | scored on the verified exit |
+| Subscription parsing | no | Clash YAML / URI / base64 |
+| Your data | you pasted it to them | nothing leaves your machine but the checks |
+| Reproducible in CI/timers | no | `--json` + `--fail-under` + `watch` |
 
 ## Privacy, honestly
 
 - ipure is **local-first**: your subscription token is only ever sent to the provider you pasted it to (plus DNS).
 - The default `ip-api` free tier is **plain HTTP** — the list of IPs you check is visible on the wire. For sensitive lists, set `IPINFO_TOKEN` and use `--provider ipinfo` (HTTPS, free 50k/month).
+- Probe targets default to `ip-api.com` over HTTP; RDAP goes to `rdap.org`/RIR servers over HTTPS.
 - No telemetry, no "anonymous statistics", zero dependencies to trust.
 
 ## Development
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 69 tests, node:test, no network needed
+npm test          # 84 tests, node:test, no network needed
 ```
 
 Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret).
 
+## FAQ
+
+**Why do my results differ from website X?** Different databases, different moments. ipure shows every input to the score so you can compare signal by signal — that's the point of itemised scoring.
+
+**Why is `--blacklist` opt-in?** DNSBL correctness depends on your resolver; some networks poison or hijack DNSBL zones. Try it, sanity-check one known-listed IP, then trust it.
+
+**Which protocols can be exit-verified?** `http`, `https`, `socks5` (with optional auth) — a real request travels through the node. Encrypted protocols (ss/vmess/vless/trojan/hysteria2) get the TCP-latency probe; their exit is whatever the server config says, which only the operator can change.
+
+**Windows?** Anything Node 18 runs on. PNG export additionally needs a local Chromium.
+
 ## Roadmap
 
-- [ ] Blacklist database signal (Spamhaus & friends)
-- [ ] Native/broadcast IP detection via RIR data
+- [ ] More risk providers (`--provider ipqs`, fraud_score)
+- [ ] `ipure watch --notify` — webhook on score drop
+- [ ] ASN reputation table from public feeds
 
 ## License
 
