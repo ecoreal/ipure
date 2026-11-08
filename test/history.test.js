@@ -8,6 +8,8 @@ import {
   loadHistory,
   saveHistory,
   diffHistory,
+  listHistory,
+  sparkline,
 } from "../src/history.js";
 
 const dir = () => fs.mkdtempSync(path.join(os.tmpdir(), "ipure-hist-"));
@@ -24,7 +26,7 @@ test("historyFile is stable per source and distinct across sources", () => {
   const b = historyFile("https://example.com/other", "/tmp/h");
   assert.equal(a1, a2);
   assert.notEqual(a1, b);
-  assert.ok(a1.endsWith(".json"));
+  assert.ok(a1.endsWith(".jsonl"));
 });
 
 test("save + load roundtrip", () => {
@@ -79,4 +81,61 @@ test("diffHistory: multiple changes sorted worst first, capped at 6", () => {
 
 test("diffHistory: no previous snapshot -> null", () => {
   assert.equal(diffHistory(null, model([row("1.1.1.1", 1)])), null);
+});
+
+test("saveHistory appends one record per run — the curve accumulates", () => {
+  const d = dir();
+  const mk = (src, gen, avg) => ({
+    meta: { generatedAt: gen },
+    summary: { avgScore: avg },
+    rows: [row("1.1.1.1", avg)],
+  });
+  saveHistory("src-b", mk("src-b", "2026-11-08 10:00", 70), d);
+  saveHistory("src-a", mk("src-a", "2026-11-08 09:00", 60), d);
+  saveHistory("src-b", mk("src-b", "2026-11-08 11:00", 75), d);
+
+  const all = listHistory(d);
+  assert.equal(all.length, 3); // every run kept — that's the point
+  // sorted oldest first
+  assert.equal(all[0].snapshot.source, "src-a");
+  assert.equal(all[2].snapshot.source, "src-b");
+  assert.equal(all[2].snapshot.avgScore, 75);
+
+  // watch diff still reads the LATEST record of a source
+  const latest = loadHistory("src-b", d);
+  assert.equal(latest.avgScore, 75);
+  assert.equal(latest.generatedAt, "2026-11-08 11:00");
+});
+
+test("legacy single-object .json files still load and list", () => {
+  const d = dir();
+  const f = path.join(d, "abcdef1234567890.json");
+  fs.writeFileSync(
+    f,
+    JSON.stringify({ generatedAt: "t", avgScore: 61, ips: { "1.1.1.1": 65 } }),
+  );
+  const all = listHistory(d);
+  assert.equal(all.length, 1);
+  assert.equal(all[0].snapshot.avgScore, 61);
+  // ...but if a JSONL log with the same key exists, the legacy file is ignored
+  fs.writeFileSync(
+    path.join(d, "abcdef1234567890.jsonl"),
+    JSON.stringify({ source: "x", generatedAt: "t2", avgScore: 70, ips: {} }) + "\n",
+  );
+  assert.equal(listHistory(d).length, 1);
+});
+
+test("listHistory: empty and corrupt entries are skipped silently", () => {
+  const d = dir();
+  fs.writeFileSync(path.join(d, "broken.json"), "{not json");
+  fs.writeFileSync(path.join(d, "notasnap.json"), JSON.stringify({ foo: 1 }));
+  assert.deepEqual(listHistory(d), []);
+});
+
+test("sparkline: normalised bars, stable single value", () => {
+  assert.equal(sparkline([]), "");
+  assert.equal(sparkline([61]), "█");
+  assert.equal(sparkline([40, 60, 80, 100]), "▁▃▆█");
+  assert.equal(sparkline([100, 40, 70]).length, 3); // shape survives reordering
+  assert.equal(sparkline([50, 50]), "▁▁"); // flat series, zero span
 });

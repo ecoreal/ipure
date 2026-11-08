@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 — 2026-11-08
+
+- **`ipure history [source]`** — watch snapshots now **append** (JSONL log, one
+  record per run) instead of overwriting, so the curve is real. `history`
+  renders sparklines per source plus the last 10 records; legacy single-object
+  snapshots still load.
+- **`--provider ipqs`** — IPQualityScore fraud_score as a real risk signal
+  (`IPQS_KEY`, per-IP quota), mapped onto proxy/vpn/tor/hosting/mobile flags.
+- **`watch --notify <url>`** — webhook alert when scores drop or fall below
+  `--fail-under` (`--notify-always` for every run). Payload carries
+  event/source/avgDelta/worse/better/new-gone IPs.
+- 13 new tests (97 total), all offline.
+
 ## 1.0.0 — 2026-11-08
 
 First stable release. One local pass now answers four independent questions:

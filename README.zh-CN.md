@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-339933)](package.json)
 [![dependencies](https://img.shields.io/badge/dependencies-0-339933)](package.json)
-[![tests](https://img.shields.io/badge/tests-84-5ba1f0)](#开发)
+[![tests](https://img.shields.io/badge/tests-97-5ba1f0)](#开发)
 
 [English](README.md) · [在线示例报告](https://ecoreal.github.io/ipure/demo-report.html)
 
@@ -35,7 +35,7 @@ IP 质量网页工具很好用 —— 直到全论坛的人共用一个 API 配�
 - **重复出口指数**：多少 IP 在偷偷共用同一个出口
 - **原生/广播判定**：RIR 注册地 vs 使用地，"原生 IP" 一键判明
 - **DNSBL 黑名单**（`--blacklist`）：3 个宽容区，按需开启
-- **分数历史**：`ipure watch` 每次运行保存快照并与上次对比；配上系统定时任务就是一条质量曲线
+- **分数历史**：`ipure watch` 每次运行追加一条快照（真曲线，不是只存上一次），`ipure history` 直接画 sparkline；`--notify <url>` 分数下跌时 webhook 告警
 - **可分享报告卡片**：单文件 HTML、Chromium 截 PNG、JSON
 
 ![报告卡片](docs/screenshot.png)
@@ -60,8 +60,9 @@ ipure sub ./config.yaml --html report.html --png report.png
 # 验证节点真实可用性，并按实测出口计分（http/socks5）
 ipure sub ./isp-proxies.yaml --probe
 
-# 长期跟踪质量 —— 每次运行保存快照并对比
+# 长期跟踪质量 —— 每次运行追加快照，画出真实曲线
 ipure watch ./config.yaml --history-dir ~/.ipure/history
+ipure history ./config.yaml
 
 # 直接检测一批 IP（也支持域名）
 ipure check 8.8.8.8 1.1.1.1 73.0.0.1
@@ -77,7 +78,8 @@ ipure watch ./config.yaml --fail-under 60
 | `--blacklist` | DNSBL 黑名单查询（3 个宽容区；质量取决于本机解析器） |
 | `--no-rdap` | 跳过原生/广播判定 |
 | `--fail-under <n>` | 平均纯净度低于 n 时以非零码退出 |
-| `--provider <name>` | `ip-api`（默认，免 key）· `ipinfo`（设 `IPINFO_TOKEN`） |
+| `--notify <url>` | `watch`：分数下跌或跌破阈值时 POST webhook（`--notify-always` 每次都推） |
+| `--provider <name>` | `ip-api`（默认，免 key）· `ipinfo`（`IPINFO_TOKEN`）· `ipqs`（`IPQS_KEY`，真实欺诈分） |
 | `--html <file>` / `--png <file>` | 分享卡片 / Chromium 截图（`IPURE_CHROME` 可指定浏览器） |
 | `--json <file\|->` | JSON 输出 |
 | `--sort score` · `--no-latency` · `--timeout <ms>` · `--conc <n>` · `--no-color` | 常规调节项 |
@@ -120,7 +122,7 @@ ipure watch ./config.yaml --fail-under 60
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 84 个测试，node:test，不需要网络
+npm test          # 97 个测试，node:test，不需要网络
 ```
 
 发布：推送 `v*` 标签后 CI 自动发布 npm（需配置 `NPM_TOKEN` secret）。
@@ -137,8 +139,6 @@ npm test          # 84 个测试，node:test，不需要网络
 
 ## 路线图
 
-- [ ] 更多风险数据源（`--provider ipqs`，fraud_score）
-- [ ] `ipure watch --notify` —— 分数下跌时 webhook 告警
 - [ ] 来自公开情报源的 ASN 信誉表
 
 ## 许可

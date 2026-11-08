@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-339933)](package.json)
 [![dependencies](https://img.shields.io/badge/dependencies-0-339933)](package.json)
-[![tests](https://img.shields.io/badge/tests-84-5ba1f0)](#development)
+[![tests](https://img.shields.io/badge/tests-97-5ba1f0)](#development)
 
 [中文说明](README.zh-CN.md) · [在线示例报告](https://ecoreal.github.io/ipure/demo-report.html)
 
@@ -61,8 +61,9 @@ ipure sub ./config.yaml --html report.html --png report.png
 # Verify nodes actually work and score the real exit IPs (http/socks5)
 ipure sub ./isp-proxies.yaml --probe
 
-# Track quality over time — snapshot + diff on every run
+# Track quality over time — append a snapshot per run, draw the curve
 ipure watch ./config.yaml --history-dir ~/.ipure/history
+ipure history ./config.yaml
 
 # Check IPs directly
 ipure check 8.8.8.8 1.1.1.1 73.0.0.1
@@ -78,7 +79,8 @@ ipure watch ./config.yaml --fail-under 60
 | `--blacklist` | DNSBL queries (3 permissive zones; quality depends on your resolver) |
 | `--no-rdap` | skip native/broadcast detection |
 | `--fail-under <n>` | exit code 1 when average purity < n |
-| `--provider <name>` | `ip-api` (default, no key) · `ipinfo` (set `IPINFO_TOKEN`) |
+| `--notify <url>` | `watch`: POST a webhook when scores drop or fall below the floor (`--notify-always` for every run) |
+| `--provider <name>` | `ip-api` (default, no key) · `ipinfo` (`IPINFO_TOKEN`) · `ipqs` (`IPQS_KEY`, real fraud score) |
 | `--html <file>` / `--png <file>` | shareable card / Chromium screenshot (`IPURE_CHROME` to override) |
 | `--json <file\|->` | machine-readable output |
 | `--sort score` · `--no-latency` · `--timeout <ms>` · `--conc <n>` · `--no-color` | the usual knobs |
@@ -121,7 +123,7 @@ Grades: **S** ≥90 native-grade clean · **A** ≥75 · **B** ≥60 usable · *
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 84 tests, node:test, no network needed
+npm test          # 97 tests, node:test, no network needed
 ```
 
 Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret).
@@ -138,8 +140,6 @@ Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret)
 
 ## Roadmap
 
-- [ ] More risk providers (`--provider ipqs`, fraud_score)
-- [ ] `ipure watch --notify` — webhook on score drop
 - [ ] ASN reputation table from public feeds
 
 ## License

@@ -19,7 +19,10 @@ import {
   saveHistory,
   diffHistory,
   defaultHistoryDir,
+  listHistory,
+  sparkline,
 } from "./history.js";
+import { shouldNotify, sendWebhook } from "./notify.js";
 import { probeNode, probeSupported } from "./probe.js";
 import { checkBlacklistBatch } from "./blacklist.js";
 import { lookupRdapBatch, nativenessOf } from "./rdap.js";
@@ -40,6 +43,7 @@ const VALUE_FLAGS = new Set([
   "--tries",
   "--history-dir",
   "--fail-under",
+  "--notify",
 ]);
 
 function usage(code = 0) {
@@ -50,10 +54,11 @@ function usage(code = 0) {
                                    → 出口 IP 纯净度 → 延迟 → 重复出口
   ipure watch <订阅源>             同 sub，但每次运行保存快照并对比上一次的分数变化，
                                    配合系统定时任务就是一条 IP 质量曲线
+  ipure history [订阅源]           查看已收集的快照曲线（sparkline + 最近记录）
   ipure check <ip或域名...>        直接检测一批 IP（也可从 stdin 管道输入）
 
 选项:
-  --provider <name>    ip-api (默认, 免key) | ipinfo (需 IPINFO_TOKEN)
+  --provider <name>    ip-api (默认, 免key) | ipinfo (IPINFO_TOKEN) | ipqs (IPQS_KEY, 欺诈分)
   --html <file>        输出可分享的 HTML 报告卡片
   --png <file>         额外用本机 Chromium 截成 PNG（需已安装）
   --json <file|->      JSON 输出到文件或 stdout
@@ -62,6 +67,8 @@ function usage(code = 0) {
   --blacklist          DNSBL 黑名单查询（3 个宽容区，质量取决于本机解析器）
   --no-rdap            跳过 RIR 原生/广播判定
   --fail-under <n>     平均纯净度低于 n 时以非零码退出（CI/定时任务告警）
+  --notify <url>       watch 专用：分数下跌或跌破 fail-under 时 POST webhook
+  --notify-always      配合 --notify：每次运行都推送（默认只在变差时）
   --no-latency         跳过 TCP 延迟测量
   --timeout <ms>       单项超时 (默认 3000)
   --conc <n>           并发数 (默认 8)
@@ -74,6 +81,8 @@ function usage(code = 0) {
 示例:
   ipure sub "https://example.com/api/v1/client/subscribe?token=xxx" --html report.html
   ipure watch ./clash.yaml --png watch.png   # 配合 cron / systemd timer 定期跑
+  ipure watch ./clash.yaml --notify https://hooks.example/xxx --fail-under 60
+  ipure history                              # 看所有源的分数曲线
   cat nodes.txt | ipure check
   ipure check 8.8.8.8 1.1.1.1 --json -`);
   process.exit(code);
@@ -147,12 +156,15 @@ async function buildSubModel(source, flags) {
   const provider = flags.provider || "ip-api";
   const providers = availableProviders();
   if (!providers[provider]) {
-    fail(`provider "${provider}" 不可用${provider === "ipinfo" ? "：需要设置 IPINFO_TOKEN" : ""}`);
+    fail(
+      `provider "${provider}" 不可用${provider === "ipinfo" ? "：需要设置 IPINFO_TOKEN" : provider === "ipqs" ? "：需要设置 IPQS_KEY" : ""}`,
+    );
   }
   step(`检测 ${ips.length} 个出口 IP 的纯净度 (${provider})…`);
   const results = await checkIps(ips, {
     provider,
     token: flags.token,
+    conc: Number(flags.conc) || 8,
     onProgress: (done, total) =>
       process.stderr.write(`\r▸ 检测进度 ${done}/${total}`),
   });
@@ -374,9 +386,10 @@ async function cmdSub(source, flags) {
 async function cmdWatch(source, flags) {
   if (!source) fail("watch 需要一个订阅源：URL、本地文件路径或 - (stdin)");
   const model = await buildSubModel(source, flags);
+  let diff = null;
   if (!flags["no-history"]) {
     const dir = flags["history-dir"] || defaultHistoryDir();
-    const diff = diffHistory(loadHistory(source, dir), model);
+    diff = diffHistory(loadHistory(source, dir), model);
     if (diff) model.summary.notes.unshift(...diffNotes(diff));
     else step("首次快照已保存，下次 watch 运行开始对比分数变化");
     const file = saveHistory(source, model, dir);
@@ -384,6 +397,83 @@ async function cmdWatch(source, flags) {
   }
   emit(model, flags, `ipure-watch-${safeFileName(source)}`);
   applyFailUnder(model, flags);
+  if (flags.notify) {
+    const failUnder = Number(flags["fail-under"]);
+    if (
+      shouldNotify(diff, {
+        always: !!flags["notify-always"],
+        failUnder,
+        avgScore: model.summary.avgScore,
+      })
+    ) {
+      step(`推送告警 ${flags.notify}…`);
+      const event = !diff
+        ? "first-run"
+        : diff.avgDelta < 0 || diff.worse.length > 0
+          ? "score-drop"
+          : "scheduled";
+      const r = await sendWebhook(flags.notify, {
+        event,
+        source,
+        generatedAt: model.meta.generatedAt,
+        avgScore: model.summary.avgScore,
+        avgDelta: diff?.avgDelta ?? 0,
+        worse: diff?.worse || [],
+        better: diff?.better || [],
+        newIps: diff?.newIps || [],
+        goneIps: diff?.goneIps || [],
+        probed: { ok: model.summary.probedOk, total: model.summary.probedTotal },
+      });
+      if (r.ok) process.stderr.write(`▸ 告警已送达 (HTTP ${r.status}, ${r.ms}ms)\n`);
+      else process.stderr.write(`⚠ 告警发送失败: ${r.error || "HTTP " + r.status}\n`);
+    }
+  }
+}
+
+// ipure history [source] — the curve you already collected.
+async function cmdHistory(source, flags) {
+  const dir = flags["history-dir"] || defaultHistoryDir();
+  const entries = listHistory(dir);
+  if (!entries.length) {
+    console.log("暂无快照 —— 先跑一次 `ipure watch <源>`，历史会存到 " + dir);
+    return;
+  }
+  if (source) {
+    const mine = entries.filter((e) => e.snapshot.source === source);
+    if (!mine.length) {
+      fail(`没有找到源「${source}」的快照（共 ${entries.length} 个快照，用 ipure history 查看全部）`);
+    }
+    const scores = mine.map((e) => e.snapshot.avgScore);
+    console.log(`⏱ ${source}`);
+    console.log(
+      `   ${mine.length} 次记录 · 平均分 ${scores[scores.length - 1]}` +
+        `（首记 ${scores[0]}，最高 ${Math.max(...scores)}，最低 ${Math.min(...scores)}）`,
+    );
+    console.log(`   ${sparkline(scores)}`);
+    console.log();
+    [...mine].reverse().slice(0, 10).forEach((e) => {
+      console.log(`   ${e.snapshot.generatedAt}  avg ${String(e.snapshot.avgScore).padStart(3)}  ${Object.keys(e.snapshot.ips || {}).length} 个出口`);
+    });
+    return;
+  }
+  // Group by source, newest first.
+  const bySource = new Map();
+  for (const e of entries) {
+    const src = e.snapshot.source || "(未知源)";
+    if (!bySource.has(src)) bySource.set(src, []);
+    bySource.get(src).push(e.snapshot);
+  }
+  console.log("⏱ ipure · 快照历史（查看单个源：ipure history <源>）\n");
+  [...bySource.entries()]
+    .sort((a, b) => String(b[1].at(-1)?.generatedAt).localeCompare(String(a[1].at(-1)?.generatedAt)))
+    .forEach(([src, snaps]) => {
+      const scores = snaps.map((s) => s.avgScore);
+      console.log(
+        `   ${sparkline(scores)}  ${src.slice(0, 52)}\n` +
+          `     ${snaps.length} 次记录 · 最新 avg ${scores.at(-1)} · 最近 ${snaps.at(-1)?.generatedAt}`,
+      );
+    });
+  console.log();
 }
 
 function clipName(s) {
@@ -417,10 +507,12 @@ async function cmdCheck(targets, flags) {
   const provider = flags.provider || "ip-api";
   const providers = availableProviders();
   if (!providers[provider]) {
-    fail(`provider "${provider}" 不可用${provider === "ipinfo" ? "：需要设置 IPINFO_TOKEN" : ""}`);
+    fail(
+      `provider "${provider}" 不可用${provider === "ipinfo" ? "：需要设置 IPINFO_TOKEN" : provider === "ipqs" ? "：需要设置 IPQS_KEY" : ""}`,
+    );
   }
   step(`检测 ${ips.length} 个 IP (${provider})…`);
-  const results = await checkIps(ips, { provider, token: flags.token });
+  const results = await checkIps(ips, { provider, token: flags.token, conc: Number(flags.conc) || 8 });
 
   let blMap = new Map();
   if (flags.blacklist && ips.length) {
@@ -561,6 +653,7 @@ const cmd = pos[0];
 try {
   if (cmd === "sub") await cmdSub(pos[1], flags);
   else if (cmd === "watch") await cmdWatch(pos[1], flags);
+  else if (cmd === "history") await cmdHistory(pos[1], flags);
   else if (cmd === "check") await cmdCheck(pos.slice(1), flags);
   else if (!cmd) usage(1);
   else fail(`未知命令: ${cmd}`);
