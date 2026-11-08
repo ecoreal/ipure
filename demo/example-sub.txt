@@ -1,0 +1,5 @@
+trojan://demo@8.8.8.8:443?sni=dns.google#Google-DNS-443
+ss://YWVzLTI1Ni1nY206cGFzcw==@1.1.1.1:443#Cloudflare-443
+trojan://demo@104.16.132.229:443?sni=cloudflare.com#Cloudflare-Web
+ss://YWVzLTI1Ni1nY206cGFzcw==@151.101.1.140:443#Fastly-CDN
+trojan://demo@13.107.21.200:443?sni=www.microsoft.com#Microsoft-443

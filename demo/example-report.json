@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "source": "demo/example-sub.txt",
+    "generatedAt": "2026/11/8 19:44:13",
+    "provider": "ip-api"
+  },
+  "summary": {
+    "nodes": 5,
+    "servers": 5,
+    "uniqueIps": 5,
+    "maxDup": 1,
+    "avgScore": 61,
+    "residential": 0,
+    "hosting": 5,
+    "mobile": 0,
+    "failed": 0,
+    "topClean": [
+      "Cloudflare-443 (65)",
+      "Cloudflare-Web (65)",
+      "Fastly-CDN (65)"
+    ],
+    "notes": [
+      "纯净度评分透明可解释：机房 -35 · 被标记为代理 -20 · 同出口节点每多一个 -3 (封顶 -15) · 移动 +5"
+    ]
+  },
+  "rows": [
+    {
+      "idx": 0,
+      "name": "Google-DNS-443",
+      "proto": "trojan",
+      "host": "8.8.8.8",
+      "port": 443,
+      "ip": "8.8.8.8",
+      "country": "United States",
+      "cc": "US",
+      "isp": "Google LLC",
+      "asn": "AS15169",
+      "type": "机房",
+      "proxy": true,
+      "mobile": false,
+      "latencyMs": 1,
+      "loss": 0,
+      "score": 45,
+      "grade": "C",
+      "note": "已被标记",
+      "reasons": [
+        {
+          "label": "机房 IP (hosting)",
+          "delta": -35
+        },
+        {
+          "label": "被风险库标记为代理/VPN",
+          "delta": -20
+        }
+      ],
+      "resolved": true
+    },
+    {
+      "idx": 1,
+      "name": "Cloudflare-443",
+      "proto": "ss",
+      "host": "1.1.1.1",
+      "port": 443,
+      "ip": "1.1.1.1",
+      "country": "Australia",
+      "cc": "AU",
+      "isp": "Cloudflare, Inc",
+      "asn": "AS13335",
+      "type": "机房",
+      "proxy": false,
+      "mobile": false,
+      "latencyMs": 0,
+      "loss": 0,
+      "score": 65,
+      "grade": "B",
+      "note": "可用",
+      "reasons": [
+        {
+          "label": "机房 IP (hosting)",
+          "delta": -35
+        }
+      ],
+      "resolved": true
+    },
+    {
+      "idx": 2,
+      "name": "Cloudflare-Web",
+      "proto": "trojan",
+      "host": "104.16.132.229",
+      "port": 443,
+      "ip": "104.16.132.229",
+      "country": "Canada",
+      "cc": "CA",
+      "isp": "Cloudflare, Inc.",
+      "asn": "AS13335",
+      "type": "机房",
+      "proxy": false,
+      "mobile": false,
+      "latencyMs": 0,
+      "loss": 0,
+      "score": 65,
+      "grade": "B",
+      "note": "可用",
+      "reasons": [
+        {
+          "label": "机房 IP (hosting)",
+          "delta": -35
+        }
+      ],
+      "resolved": true
+    },
+    {
+      "idx": 3,
+      "name": "Fastly-CDN",
+      "proto": "ss",
+      "host": "151.101.1.140",
+      "port": 443,
+      "ip": "151.101.1.140",
+      "country": "Canada",
+      "cc": "CA",
+      "isp": "Fastly, Inc.",
+      "asn": "AS54113",
+      "type": "机房",
+      "proxy": false,
+      "mobile": false,
+      "latencyMs": 0,
+      "loss": 0,
+      "score": 65,
+      "grade": "B",
+      "note": "可用",
+      "reasons": [
+        {
+          "label": "机房 IP (hosting)",
+          "delta": -35
+        }
+      ],
+      "resolved": true
+    },
+    {
+      "idx": 4,
+      "name": "Microsoft-443",
+      "proto": "trojan",
+      "host": "13.107.21.200",
+      "port": 443,
+      "ip": "13.107.21.200",
+      "country": "United States",
+      "cc": "US",
+      "isp": "Microsoft Corporation",
+      "asn": "AS8068",
+      "type": "机房",
+      "proxy": false,
+      "mobile": false,
+      "latencyMs": 0,
+      "loss": 0,
+      "score": 65,
+      "grade": "B",
+      "note": "可用",
+      "reasons": [
+        {
+          "label": "机房 IP (hosting)",
+          "delta": -35
+        }
+      ],
+      "resolved": true
+    }
+  ]
+}

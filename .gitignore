@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+demo/*.html
+demo/*.png
+!demo/.gitkeep
+out/
+docs/*.html

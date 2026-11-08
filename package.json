@@ -1,0 +1,43 @@
+{
+  "name": "ipure",
+  "version": "0.1.0",
+  "description": "Is your airport's IP fresh or burned? Local-first IP purity & subscription health check — batch-check node IPs, latency, and the duplicate-exit score, straight from your terminal.",
+  "license": "MIT",
+  "author": "ecoreal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ecoreal/ipure.git"
+  },
+  "homepage": "https://github.com/ecoreal/ipure#readme",
+  "bugs": "https://github.com/ecoreal/ipure/issues",
+  "keywords": [
+    "ip",
+    "purity",
+    "ip-quality",
+    "proxy",
+    "subscription",
+    "clash",
+    "airport",
+    "network",
+    "diagnostics",
+    "cli"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "bin": {
+    "ipure": "src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node src/cli.js check 8.8.8.8 1.1.1.1 208.67.222.222 223.5.5.5"
+  },
+  "private": false
+}
