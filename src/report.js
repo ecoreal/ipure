@@ -113,8 +113,10 @@ export function renderTerminal(model, { color = true } = {}) {
     const ip = r.ip || "解析失败";
     const ipCell = r.ip ? ip : color ? red(ip) : ip;
     const lat = color ? latencyColor(r) : latencyPlain(r);
-    const scoreText = `${String(r.score).padStart(3)} ${r.grade}`;
-    const scoreCell = color ? scoreColor(r.score)(scoreText) : scoreText;
+    const scoreText =
+      r.score == null ? "  — —" : `${String(r.score).padStart(3)} ${r.grade}`;
+    const scoreCell =
+      r.score == null ? d(scoreText) : color ? scoreColor(r.score)(scoreText) : scoreText;
     L.push(
       `   ${d(pad(String(i + 1), cols.i))} ${pad(name, cols.name)} ` +
         `${d(pad(r.proto, cols.proto))} ${padColor(ip, ipCell, cols.ip)} ` +
@@ -154,7 +156,7 @@ export function buildReportHtml(model) {
         <td class="isp" title="${esc(r.isp)}">${esc(clip(r.isp || "", 22))}</td>
         <td><span class="tag t-${r.type === "机房" ? "dc" : r.type === "移动" ? "mo" : "rs"}">${esc(r.type)}</span></td>
         <td class="lat">${r.latencyMs == null ? "—" : r.latencyMs + "ms"}</td>
-        <td class="sc s-${esc(r.grade)}">${r.score} <b>${esc(r.grade)}</b></td>
+        <td class="sc${r.score == null ? "" : ` s-${esc(r.grade)}`}">${r.score == null ? "—" : `${r.score} <b>${esc(r.grade)}</b>`}</td>
       </tr>`,
     )
     .join("");

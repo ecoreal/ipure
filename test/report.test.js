@@ -52,7 +52,7 @@ const model = {
       name: "美国家宽", proto: "ss", host: "example.com", ip: null,
       country: "", cc: "", isp: "", asn: "",
       type: "未知", proxy: false, mobile: false, latencyMs: null, loss: null,
-      score: 0, grade: "D", note: "建议更换", reasons: [], resolved: false,
+      score: null, grade: "—", note: "未测得", reasons: [], resolved: false,
     },
   ],
 };
@@ -62,6 +62,7 @@ test("renderTerminal includes key info, with and without color", () => {
   assert.ok(plain.includes("香港 IEPL-01"));
   assert.ok(plain.includes("1.2.3.4"));
   assert.ok(plain.includes("解析失败"));
+  assert.ok(plain.includes("  — —")); // unscored rows never fake a number
   assert.ok(plain.includes("最多 2 节点共用"));
   const colored = renderTerminal(model, { color: true });
   assert.ok(colored.includes("\x1b["));

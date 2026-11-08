@@ -179,7 +179,7 @@ async function buildSubModel(source, flags) {
     const ip = hostMap.get(n.host);
     const info = ip ? results.get(ip) : null;
     const dupCount = ip ? ipDup.get(ip) || 1 : 1;
-    const { score, grade, reasons } = purityScore(info, { dupCount });
+    const scored = purityScore(info, { dupCount });
     const lat = latencyMap.get(`${n.host}:${n.port}`);
     return {
       idx,
@@ -197,18 +197,20 @@ async function buildSubModel(source, flags) {
       mobile: !!info?.mobile,
       latencyMs: lat ? lat.ms : null,
       loss: lat ? lat.loss : null,
-      score,
-      grade,
-      note: gradeOf(score).note,
-      reasons,
+      // An IP we could not measure has no score — never fake a 100.
+      score: info?.ok ? scored.score : null,
+      grade: info?.ok ? scored.grade : "—",
+      note: info?.ok ? gradeOf(scored.score).note : "未测得",
+      reasons: info?.ok ? scored.reasons : [],
       resolved: !!ip,
     };
   });
 
   const sortKey = flags.sort || "order";
-  if (sortKey === "score") rows = [...rows].sort((a, b) => b.score - a.score);
+  if (sortKey === "score")
+    rows = [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
-  const scored = rows.filter((r) => r.resolved);
+  const scored = rows.filter((r) => r.score != null);
   const summary = {
     nodes: rows.length,
     servers: byHost.size,
@@ -309,7 +311,7 @@ async function cmdCheck(targets, flags) {
 
   const rows = entries.map((e, idx) => {
     const info = e.ip ? results.get(e.ip) : null;
-    const { score, grade, reasons } = purityScore(info, { dupCount: e.ip ? dup.get(e.ip) : 1 });
+    const scored = purityScore(info, { dupCount: e.ip ? dup.get(e.ip) : 1 });
     return {
       idx,
       name: e.target,
@@ -325,15 +327,15 @@ async function cmdCheck(targets, flags) {
       mobile: !!info?.mobile,
       latencyMs: null,
       loss: null,
-      score,
-      grade,
-      note: gradeOf(score).note,
-      reasons,
+      score: info?.ok ? scored.score : null,
+      grade: info?.ok ? scored.grade : "—",
+      note: info?.ok ? gradeOf(scored.score).note : "未测得",
+      reasons: info?.ok ? scored.reasons : [],
       resolved: !!e.ip,
     };
   });
 
-  const scored = rows.filter((r) => r.resolved);
+  const scored = rows.filter((r) => r.score != null);
   const model = {
     meta: { source: "check", generatedAt: now(), provider },
     summary: {
