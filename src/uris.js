@@ -2,6 +2,8 @@
 // Supported: ss:// vmess:// vless:// trojan:// hysteria2:// hy2:// tuic:// ssr://
 // We only extract the server address for measurement — no credentials are used.
 
+import { parseClashProxies, looksLikeClash } from "./clash.js";
+
 const SCHEME_RE = /^([a-z0-9+.-]+):\/\//i;
 
 function b64decode(s) {
@@ -147,8 +149,25 @@ export function parseShareUri(line) {
   }
 }
 
-// Subscription body (plain URI list, whole-body base64, or a mix) -> nodes.
+// Subscription body (Clash YAML, plain URI list, whole-body base64, or a
+// mix) -> nodes.
 export function parseNodes(body) {
+  // Clash/Mihomo YAML takes priority when a top-level `proxies:` exists.
+  if (looksLikeClash(body)) {
+    const clash = parseClashProxies(body);
+    if (clash && clash.nodes.length) {
+      return {
+        nodes: clash.nodes,
+        stats: {
+          total: clash.nodes.length + clash.skipped,
+          parsed: clash.nodes.length,
+          unknown: clash.skipped,
+          unknownSamples: [],
+        },
+      };
+    }
+  }
+
   const lines = String(body)
     .split(/\r?\n/)
     .map((s) => s.trim())

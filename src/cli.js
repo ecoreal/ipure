@@ -35,7 +35,8 @@ function usage(code = 0) {
   console.log(`⏱  ipure v${pkg.version} — 本地优先的 IP 纯净度检测工具
 
 用法:
-  ipure sub <订阅链接|文件|->       体检整个订阅：解析节点 → 出口 IP 纯净度 → 延迟 → 共用出口
+  ipure sub <订阅源>               体检一整个订阅源（URI 列表 / base64 / Clash YAML）
+                                   → 出口 IP 纯净度 → 延迟 → 重复出口
   ipure check <ip或域名...>        直接检测一批 IP（也可从 stdin 管道输入）
 
 选项:

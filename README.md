@@ -93,12 +93,13 @@ Grades: **S** ≥90 native-grade clean · **A** ≥75 · **B** ≥60 usable · *
 
 ## Subscription formats
 
-Whole-body base64 and plain URI lists, one node per line:
+**Clash/Mihomo YAML** (the `proxies:` section, inline-flow and block styles) or
+plain URI lists / whole-body base64, one node per line:
 `ss://` (SIP002 + legacy) · `vmess://` · `vless://` · `trojan://` ·
 `hysteria2://`/`hy2://` · `tuic://` · `ssr://`
 
 Only the **server address** is extracted for measurement — credentials are
-parsed and discarded. Clash/Mihomo YAML is on the roadmap.
+parsed and discarded.
 
 ## Privacy, honestly
 
@@ -110,12 +111,11 @@ parsed and discarded. Clash/Mihomo YAML is on the roadmap.
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 46 tests, node:test, no network needed
+npm test          # 54 tests, node:test, no network needed
 ```
 
 ## Roadmap
 
-- [ ] Clash/Mihomo YAML subscription parsing
 - [ ] `ipure watch` — re-check nightly, diff the scores
 - [ ] Blacklist database signal (Spamhaus & friends)
 - [ ] Native/broadcast IP detection via RIR data

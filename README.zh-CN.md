@@ -74,11 +74,12 @@ cat ips.txt | ipure check
 
 ## 支持的订阅格式
 
-整段 base64 和明文 URI 列表，每行一个节点：
+**Clash/Mihomo YAML**（`proxies:` 段，行内 flow 和块式两种写法都支持），
+或明文 URI 列表 / 整段 base64，每行一个节点：
 `ss://`（SIP002 + 传统格式）· `vmess://` · `vless://` · `trojan://` ·
 `hysteria2://`/`hy2://` · `tuic://` · `ssr://`
 
-只提取**服务器地址**用于测量，凭据解析后立即丢弃。Clash/Mihomo YAML 在路线图上。
+只提取**服务器地址**用于测量，凭据解析后立即丢弃。
 
 ## 隐私，说实话
 
@@ -90,12 +91,11 @@ cat ips.txt | ipure check
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 46 个测试，node:test，不需要网络
+npm test          # 54 个测试，node:test，不需要网络
 ```
 
 ## 路线图
 
-- [ ] Clash/Mihomo YAML 订阅解析
 - [ ] `ipure watch` —— 定时复检，对比分数变化
 - [ ] 黑名单库信号（Spamhaus 等）
 - [ ] 基于 RIR 数据的原生/广播 IP 判定

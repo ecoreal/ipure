@@ -1,0 +1,22 @@
+# Clash/Mihomo YAML 订阅示例 — 供 ipure 体检演示
+# 全部使用公共服务 IP 作为测量目标，不含任何凭据。
+mixed-port: 7890
+proxies:
+  - {name: "Google-DNS-443", type: trojan, server: 8.8.8.8, port: 443, password: "demo"}
+  - name: "Cloudflare-443"
+    type: ss
+    server: 1.1.1.1
+    port: "443"
+    cipher: aes-256-gcm
+  - {name: "Cloudflare-Web", type: trojan, server: 104.16.132.229, port: 443, password: "demo"}
+  - name: "Fastly-CDN"
+    type: ss
+    server: 151.101.1.140
+    port: 443
+  - {name: "Microsoft-443", type: trojan, server: 13.107.21.200, port: 443, password: "demo"}
+proxy-groups:
+  - name: auto
+    type: url-test
+    proxies: [Google-DNS-443, Cloudflare-443]
+rules:
+  - MATCH,DIRECT
