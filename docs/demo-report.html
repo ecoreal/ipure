@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ipure · IP 纯净度检测报告</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+         background: #0d1117; color: #e6edf3; padding: 28px; }
+  .card { max-width: 920px; margin: 0 auto; background: #11161d; border: 1px solid #1f2733;
+          border-radius: 14px; padding: 28px 30px; }
+  h1 { font-size: 19px; letter-spacing: .5px; }
+  .meta { color: #7d8590; font-size: 12px; margin-top: 4px; }
+  .hero { display: flex; align-items: center; gap: 26px; margin: 22px 0; }
+  .ring { width: 118px; height: 118px; border-radius: 50%; flex: none;
+          background: conic-gradient(#d9a13c 219.6deg, #21262d 0deg);
+          display: grid; place-items: center; }
+  .ring > div { width: 92px; height: 92px; border-radius: 50%; background: #11161d;
+                display: grid; place-items: center; text-align: center; }
+  .ring b { font-size: 30px; display: block; } .ring span { color: #7d8590; font-size: 11px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: #161d27; border: 1px solid #232c3a; border-radius: 999px;
+          padding: 4px 12px; font-size: 12.5px; color: #adbac7; }
+  .chip b { color: #e6edf3; }
+  .warn { border-color: #d95c4a; color: #f0a197; }
+  .warn b { color: #f0a197; }
+  table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13px; }
+  th { color: #7d8590; font-weight: 500; text-align: left; padding: 7px 10px;
+       border-bottom: 1px solid #232c3a; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid #1a212b; white-space: nowrap; }
+  tr:hover td { background: #151b24; }
+  .idx, .lat, .sc { text-align: right; } .idx { color: #7d8590; }
+  .pr { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; }
+  .nv { font-size: 12px; }
+  .p-ok { color: #3fb96f; } .p-bad { color: #d95c4a; }
+  .proto { color: #7d8590; }
+  .ip { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .isp, .name { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+  .tag { border-radius: 6px; padding: 1px 8px; font-size: 12px; }
+  .t-dc { background: #3a2020; color: #f0a197; }
+  .t-rs { background: #1e3327; color: #7ee2a8; }
+  .t-mo { background: #1f2b3d; color: #9ec1f0; }
+  .sc b { margin-left: 4px; }
+  .s-S, .s-A { color: #3fb96f; } .s-B { color: #d9a13c; } .s-C, .s-D { color: #d95c4a; }
+  footer { margin-top: 20px; color: #7d8590; font-size: 12px; display: flex;
+           justify-content: space-between; }
+  a { color: #5ba1f0; text-decoration: none; }
+</style></head>
+<body><div class="card">
+  <h1>⏱ ipure · IP 纯净度检测报告</h1>
+  <div class="meta">生成于 2026/11/8 22:23:22 · provider: ip-api · demo/example-sub.txt</div>
+  <div class="hero">
+    <div class="ring"><div><b>61</b><span>平均纯净度</span></div></div>
+    <div class="chips">
+      <span class="chip">节点 <b>5</b></span>
+      <span class="chip">服务器 <b>5</b></span>
+      <span class="chip">独立出口 IP <b>5</b></span>
+      <span class="chip">最大共用 <b>1</b></span>
+      <span class="chip">家宽 <b>0</b></span>
+      <span class="chip">机房 <b>5</b></span>
+      <span class="chip">移动 <b>0</b></span>
+      
+      <span class="chip">原生 <b>3</b> · 广播 <b>2</b></span>
+      
+      
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>节点</th><th>协议</th><th>出口 IP</th><th>国家</th><th>ISP</th><th>类型</th><th class="lat">延迟</th><th>原生</th><th class="sc">纯净度</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="idx">1</td>
+        <td class="name" title="Google-DNS-443">Google-DNS-443</td>
+        <td class="proto">trojan</td>
+        <td class="ip">8.8.8.8</td>
+        <td>United States</td>
+        <td class="isp" title="Google LLC">Google LLC</td>
+        <td><span class="tag t-dc">机房</span></td>
+        <td class="lat">1ms</td>
+        
+        <td class="nv p-ok">原生</td>
+        
+        <td class="sc s-C">50 <b>C</b></td>
+      </tr>
+      <tr>
+        <td class="idx">2</td>
+        <td class="name" title="Cloudflare-443">Cloudflare-443</td>
+        <td class="proto">ss</td>
+        <td class="ip">1.1.1.1</td>
+        <td>Australia</td>
+        <td class="isp" title="Cloudflare, Inc">Cloudflare, Inc</td>
+        <td><span class="tag t-dc">机房</span></td>
+        <td class="lat">1ms</td>
+        
+        <td class="nv p-ok">原生</td>
+        
+        <td class="sc s-B">70 <b>B</b></td>
+      </tr>
+      <tr>
+        <td class="idx">3</td>
+        <td class="name" title="Cloudflare-Web">Cloudflare-Web</td>
+        <td class="proto">trojan</td>
+        <td class="ip">104.16.132.229</td>
+        <td>Canada</td>
+        <td class="isp" title="Cloudflare, Inc.">Cloudflare, Inc.</td>
+        <td><span class="tag t-dc">机房</span></td>
+        <td class="lat">1ms</td>
+        
+        <td class="nv p-bad">广播</td>
+        
+        <td class="sc s-C">57 <b>C</b></td>
+      </tr>
+      <tr>
+        <td class="idx">4</td>
+        <td class="name" title="Fastly-CDN">Fastly-CDN</td>
+        <td class="proto">ss</td>
+        <td class="ip">151.101.1.140</td>
+        <td>Canada</td>
+        <td class="isp" title="Fastly, Inc.">Fastly, Inc.</td>
+        <td><span class="tag t-dc">机房</span></td>
+        <td class="lat">1ms</td>
+        
+        <td class="nv p-bad">广播</td>
+        
+        <td class="sc s-C">57 <b>C</b></td>
+      </tr>
+      <tr>
+        <td class="idx">5</td>
+        <td class="name" title="Microsoft-443">Microsoft-443</td>
+        <td class="proto">trojan</td>
+        <td class="ip">13.107.21.200</td>
+        <td>United States</td>
+        <td class="isp" title="Microsoft Corporation">Microsoft Corporation</td>
+        <td><span class="tag t-dc">机房</span></td>
+        <td class="lat">0ms</td>
+        
+        <td class="nv p-ok">原生</td>
+        
+        <td class="sc s-B">70 <b>B</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <footer>
+    <span>评分算法透明可解释，每一分都能说清来龙去脉</span>
+    <a href="https://github.com/ecoreal/ipure">github.com/ecoreal/ipure</a>
+  </footer>
+</div></body></html>
