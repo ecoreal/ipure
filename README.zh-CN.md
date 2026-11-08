@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-339933)](package.json)
 [![dependencies](https://img.shields.io/badge/dependencies-0-339933)](package.json)
-[![tests](https://img.shields.io/badge/tests-97-5ba1f0)](#开发)
+[![tests](https://img.shields.io/badge/tests-104-5ba1f0)](#开发)
 
 [English](README.md) · [在线示例报告](https://ecoreal.github.io/ipure/demo-report.html)
 
@@ -76,6 +76,7 @@ ipure watch ./config.yaml --fail-under 60
 |---|---|
 | `--probe` | 真实穿透验证 `http`/`https`/`socks5` 节点的可用性与实际出口 |
 | `--blacklist` | DNSBL 黑名单查询（3 个宽容区；质量取决于本机解析器） |
+| `--drop` | Spamhaus DROP 被劫持网段核对 |
 | `--no-rdap` | 跳过原生/广播判定 |
 | `--fail-under <n>` | 平均纯净度低于 n 时以非零码退出 |
 | `--notify <url>` | `watch`：分数下跌或跌破阈值时 POST webhook（`--notify-always` 每次都推） |
@@ -94,6 +95,7 @@ ipure watch ./config.yaml --fail-under 60
 | 风险分 ≥75 / ≥50 / ≥25 | **−25 / −15 / −8** | 按严重度分档 |
 | DNSBL 命中每区（按需开启） | **−8，封顶 −24** | 有滥用举报史 |
 | N 个 IP 共用同一出口 | **−3 × (N−1)，封顶 −15** | 重复出口扣分 |
+| Spamhaus DROP 网段（按需 `--drop`） | **−15** | 被劫持/非法宣告的网段 |
 | 广播（注册地 ≠ 使用地） | **−8** | 注册在某地、用在另一地 |
 | 移动网络出口 | **+5** | 几乎是最干净的出口 |
 | 原生（注册地 = 使用地） | **+5** | RIR 数据与地理一致 |
@@ -122,7 +124,7 @@ ipure watch ./config.yaml --fail-under 60
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 97 个测试，node:test，不需要网络
+npm test          # 104 个测试，node:test，不需要网络
 ```
 
 发布：推送 `v*` 标签后 CI 自动发布 npm（需配置 `NPM_TOKEN` secret）。
@@ -139,7 +141,7 @@ npm test          # 97 个测试，node:test，不需要网络
 
 ## 路线图
 
-- [ ] 来自公开情报源的 ASN 信誉表
+已清空 —— 1.0 时承诺的全部上线，新想法走 issue tracker。
 
 ## 许可
 

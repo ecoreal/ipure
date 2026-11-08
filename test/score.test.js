@@ -42,6 +42,13 @@ test("native +5, broadcast -8, unknown nothing", () => {
   assert.equal(purityScore({}, { native: null }).score, 100);
 });
 
+test("Spamhaus DROP hit costs 15 and is labelled", () => {
+  const r = purityScore({}, { dropHit: true });
+  assert.equal(r.score, 85);
+  assert.ok(r.reasons.some((x) => x.label.includes("DROP")));
+  assert.equal(purityScore({}, { dropHit: false }).score, 100);
+});
+
 test("combined signals stack additively", () => {
   // hosting -35, broadcast -8, blacklist 1 -8, dup(2) -3, mobile +5
   const r = purityScore(

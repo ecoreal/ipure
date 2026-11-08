@@ -8,6 +8,7 @@ const PENALTY = {
   risk: 25, // provider risk score >= 75 (scaled below)
   dup: 15, // many nodes share this exit IP (capped, -3 per extra node)
   blacklist: 24, // DNSBL hits, -8 per zone (capped)
+  drop: 15, // inside a Spamhaus DROP hijacked netblock
   broadcast: 8, // registered region ≠ used region
 };
 
@@ -39,6 +40,10 @@ export function purityScore(info, extras = {}) {
     const delta = -Math.min(PENALTY.blacklist, bl * 8);
     score += delta;
     reasons.push({ label: `DNSBL 黑名单命中 ${bl} 项`, delta });
+  }
+  if (extras.dropHit) {
+    score -= PENALTY.drop;
+    reasons.push({ label: "Spamhaus DROP 劫持网段", delta: -PENALTY.drop });
   }
   // Accept both boolean and the rendered "原生"/"广播" forms.
   const native =

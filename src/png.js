@@ -34,9 +34,11 @@ export function htmlToPng(htmlPath, pngPath, { width = 980, height = 1400 } = {}
   }
   if (!existsSync(htmlPath)) throw new Error(`HTML 不存在: ${htmlPath}`);
   // Chromium resolves --screenshot relative to its own profile dir, so both
-  // paths must be absolute or the file silently vanishes.
+  // paths must be absolute or the file silently vanishes. A missing parent
+  // dir fails even more silently (exit 0, no file) — create it first.
   const htmlAbs = path.resolve(htmlPath);
   const pngAbs = path.resolve(pngPath);
+  fs.mkdirSync(path.dirname(pngAbs), { recursive: true });
   const args = [
     "--headless=new",
     "--disable-gpu",

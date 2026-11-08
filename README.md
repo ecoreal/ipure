@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-339933)](package.json)
 [![dependencies](https://img.shields.io/badge/dependencies-0-339933)](package.json)
-[![tests](https://img.shields.io/badge/tests-97-5ba1f0)](#development)
+[![tests](https://img.shields.io/badge/tests-104-5ba1f0)](#development)
 
 [中文说明](README.zh-CN.md) · [在线示例报告](https://ecoreal.github.io/ipure/demo-report.html)
 
@@ -77,6 +77,7 @@ ipure watch ./config.yaml --fail-under 60
 |---|---|
 | `--probe` | real-traffic exit verification for `http`/`https`/`socks5` nodes |
 | `--blacklist` | DNSBL queries (3 permissive zones; quality depends on your resolver) |
+| `--drop` | Spamhaus DROP hijacked-netblock check |
 | `--no-rdap` | skip native/broadcast detection |
 | `--fail-under <n>` | exit code 1 when average purity < n |
 | `--notify <url>` | `watch`: POST a webhook when scores drop or fall below the floor (`--notify-always` for every run) |
@@ -95,6 +96,7 @@ ipure watch ./config.yaml --fail-under 60
 | Provider risk score ≥75 / ≥50 / ≥25 | **−25 / −15 / −8** | scaled by severity |
 | DNSBL hit per zone (opt-in) | **−8, cap −24** | history of abuse reports |
 | N clients share one exit IP | **−3 × (N−1), cap −15** | the "burned IP" tax |
+| Spamhaus DROP netblock (opt-in `--drop`) | **−15** | hijacked / illegitimately announced space |
 | Broadcast (registered ≠ used region) | **−8** | announced somewhere else than registered |
 | Mobile carrier exit | **+5** | about as clean as it gets |
 | Native (registered = used region) | **+5** | RIR data agrees with geography |
@@ -123,7 +125,7 @@ Grades: **S** ≥90 native-grade clean · **A** ≥75 · **B** ≥60 usable · *
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 97 tests, node:test, no network needed
+npm test          # 104 tests, node:test, no network needed
 ```
 
 Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret).
@@ -140,7 +142,7 @@ Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret)
 
 ## Roadmap
 
-- [ ] ASN reputation table from public feeds
+Cleared — everything promised at 1.0 shipped. Ideas live in the issue tracker.
 
 ## License
 

@@ -25,6 +25,7 @@ import {
 import { shouldNotify, sendWebhook } from "./notify.js";
 import { probeNode, probeSupported } from "./probe.js";
 import { checkBlacklistBatch } from "./blacklist.js";
+import { checkDropBatch } from "./drop.js";
 import { lookupRdapBatch, nativenessOf } from "./rdap.js";
 
 const require = createRequire(import.meta.url);
@@ -65,6 +66,7 @@ function usage(code = 0) {
   --sort <key>         score | order (默认 order, 按订阅原序)
   --probe              出口验证：真实穿透 http/socks5 节点，验证可用性与实际出口 IP
   --blacklist          DNSBL 黑名单查询（3 个宽容区，质量取决于本机解析器）
+  --drop               Spamhaus DROP 劫持网段核对（免费公开列表，命中 -15）
   --no-rdap            跳过 RIR 原生/广播判定
   --fail-under <n>     平均纯净度低于 n 时以非零码退出（CI/定时任务告警）
   --notify <url>       watch 专用：分数下跌或跌破 fail-under 时 POST webhook
@@ -244,6 +246,13 @@ async function buildSubModel(source, flags) {
     const listed = [...blMap.values()].filter((h) => h.length).length;
     step(`黑名单命中 ${listed}/${effIps.length}`);
   }
+  let dropMap = new Map();
+  if (flags.drop && effIps.length) {
+    step(`Spamhaus DROP 劫持网段核对 ${effIps.length} 个出口…`);
+    dropMap = await checkDropBatch(effIps, { conc: 1 });
+    const hitN = [...dropMap.values()].filter(Boolean).length;
+    step(`DROP 命中 ${hitN}/${effIps.length}`);
+  }
   let rdapMap = new Map();
   if (!flags["no-rdap"] && effIps.length) {
     step(`RIR 注册地查询 ${effIps.length} 个出口…`);
@@ -263,11 +272,13 @@ async function buildSubModel(source, flags) {
     const info = ip ? results.get(ip) : null;
     const dupCount = ip ? ipDup.get(ip) || 1 : 1;
     const blHits = ip ? blMap.get(ip) || [] : [];
+    const dropHit = ip ? !!dropMap.get(ip) : false;
     const rir = ip ? rdapMap.get(ip) || null : null;
     const native = rir ? nativenessOf(rir.country, info?.ok ? info.cc : null) : null;
     const scored = purityScore(info, {
       dupCount,
       blacklistHits: blHits.length,
+      dropHit,
       native,
     });
     const lat = latencyMap.get(`${n.host}:${n.port}`);
@@ -298,6 +309,7 @@ async function buildSubModel(source, flags) {
       rirName: rir?.name || null,
       native,
       blHits,
+      dropHit,
       // Credentials never make it into rows — only the verdict does.
       probe: probe
         ? {
@@ -321,6 +333,7 @@ async function buildSubModel(source, flags) {
   const nativeCount = scored.filter((r) => r.native === "原生").length;
   const broadcastCount = scored.filter((r) => r.native === "广播").length;
   const blListed = scored.filter((r) => r.blHits?.length).length;
+  const dropCount = scored.filter((r) => r.dropHit).length;
   const summary = {
     nodes: rows.length,
     servers: byHost.size,
@@ -338,6 +351,7 @@ async function buildSubModel(source, flags) {
     nativeCount,
     broadcastCount,
     blListed,
+    dropCount,
     topClean: [...scored]
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
@@ -356,6 +370,8 @@ async function buildSubModel(source, flags) {
           ]
         : []),
       ...(blListed ? [`DNSBL 黑名单命中 ${blListed} 个出口，每项 -8（封顶 -24）`] : []),
+      ...(dropCount ? ["Spamhaus DROP：出口位于被劫持/滥用网段（-15）"] : []),
+      ...(summary.dropCount ? ["Spamhaus DROP：出口位于被劫持/滥用网段（-15）"] : []),
       ...(noExit ? [`${noExit} 个节点无有效出口，未参与纯净度评分`] : []),
     ],
   };
@@ -519,6 +535,11 @@ async function cmdCheck(targets, flags) {
     step(`黑名单查询 ${ips.length} 个 IP（DNSBL × 3 区）…`);
     blMap = await checkBlacklistBatch(ips, { conc: Number(flags.conc) || 8 });
   }
+  let dropMap = new Map();
+  if (flags.drop && ips.length) {
+    step(`Spamhaus DROP 核对 ${ips.length} 个 IP…`);
+    dropMap = await checkDropBatch(ips, { conc: 1 });
+  }
   let rdapMap = new Map();
   if (!flags["no-rdap"] && ips.length) {
     step(`RIR 注册地查询 ${ips.length} 个 IP…`);
@@ -531,11 +552,13 @@ async function cmdCheck(targets, flags) {
   const rows = entries.map((e, idx) => {
     const info = e.ip ? results.get(e.ip) : null;
     const blHits = e.ip ? blMap.get(e.ip) || [] : [];
+    const dropHit = e.ip ? !!dropMap.get(e.ip) : false;
     const rir = e.ip ? rdapMap.get(e.ip) || null : null;
     const native = rir ? nativenessOf(rir.country, info?.ok ? info.cc : null) : null;
     const scored = purityScore(info, {
       dupCount: e.ip ? dup.get(e.ip) : 1,
       blacklistHits: blHits.length,
+      dropHit,
       native,
     });
     return {
@@ -562,6 +585,7 @@ async function cmdCheck(targets, flags) {
       rirName: rir?.name || null,
       native,
       blHits,
+      dropHit,
       probe: null,
     };
   });
@@ -586,6 +610,7 @@ async function cmdCheck(targets, flags) {
       nativeCount: scored.filter((r) => r.native === "原生").length,
       broadcastCount: scored.filter((r) => r.native === "广播").length,
       blListed: scored.filter((r) => r.blHits?.length).length,
+      dropCount: scored.filter((r) => r.dropHit).length,
       topClean: [],
       notes: [],
     },
