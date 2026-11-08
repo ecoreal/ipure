@@ -32,7 +32,7 @@ const VALUE_FLAGS = new Set([
 ]);
 
 function usage(code = 0) {
-  console.log(`⏱  ipure v${pkg.version} — 本地优先的 IP 纯净度 / 订阅体检工具
+  console.log(`⏱  ipure v${pkg.version} — 本地优先的 IP 纯净度检测工具
 
 用法:
   ipure sub <订阅链接|文件|->       体检整个订阅：解析节点 → 出口 IP 纯净度 → 延迟 → 共用出口

@@ -1,7 +1,7 @@
 {
   "name": "ipure",
   "version": "0.1.0",
-  "description": "Is your airport's IP fresh or burned? Local-first IP purity & subscription health check — batch-check node IPs, latency, and the duplicate-exit score, straight from your terminal.",
+  "description": "Batch IP purity check from your terminal — exit-IP scoring, duplicate-exit detection, TCP latency, shareable report cards. Zero dependencies.",
   "license": "MIT",
   "author": "ecoreal",
   "repository": {
@@ -14,10 +14,9 @@
     "ip",
     "purity",
     "ip-quality",
-    "proxy",
-    "subscription",
-    "clash",
-    "airport",
+    "ip-check",
+    "risk-score",
+    "proxy-detection",
     "network",
     "diagnostics",
     "cli"

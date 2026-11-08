@@ -66,7 +66,7 @@ export function renderTerminal(model, { color = true } = {}) {
   const d = color ? dim : (s) => String(s);
   const b = color ? bold : (s) => String(s);
 
-  L.push(b("⏱  ipure · 订阅纯净度体检"));
+  L.push(b("⏱  ipure · IP 纯净度体检"));
   L.push(
     d(`   ${meta.generatedAt} · provider: ${meta.provider} · 源: ${clip(meta.source, 58)}`),
   );
@@ -162,7 +162,7 @@ export function buildReportHtml(model) {
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ipure · 订阅纯净度体检</title>
+<title>ipure · IP 纯净度检测报告</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
@@ -205,7 +205,7 @@ export function buildReportHtml(model) {
   a { color: #5ba1f0; text-decoration: none; }
 </style></head>
 <body><div class="card">
-  <h1>⏱ ipure · 订阅纯净度体检</h1>
+  <h1>⏱ ipure · IP 纯净度检测报告</h1>
   <div class="meta">生成于 ${esc(meta.generatedAt)} · provider: ${esc(meta.provider)} · ${esc(clip(meta.source, 72))}</div>
   <div class="hero">
     <div class="ring"><div><b>${avg}</b><span>平均纯净度</span></div></div>

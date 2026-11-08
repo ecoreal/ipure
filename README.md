@@ -1,6 +1,6 @@
 # ⏱ ipure
 
-**Is your airport's IP fresh or burned? Paste a subscription, get the verdict — locally, in seconds.**
+**Is your IP fresh or burned? Paste a list, get the verdict — locally, in seconds.**
 
 [![CI](https://github.com/ecoreal/ipure/actions/workflows/ci.yml/badge.svg)](https://github.com/ecoreal/ipure/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb96f.svg)](LICENSE)
@@ -12,7 +12,7 @@
 ```console
 $ ipure sub "https://example.com/api/subscribe?token=xxx" --html report.html
 
-⏱  ipure · 订阅纯净度体检
+⏱  ipure · IP 纯净度体检
    2026/11/8 19:44:13 · provider: ip-api · 源: demo/example-sub.txt
 
    节点 5 · 服务器 5 · 独立出口 IP 5
@@ -33,7 +33,7 @@ against your own quota.** Paste a subscription link (or a file, or a list of
 IPs on stdin) and get:
 
 - **Purity score 0–100** per exit IP — datacenter/proxy/risk penalties, mobile bonus, fully itemised
-- **The "burned IP" signal** — how many nodes secretly share one exit IP (the real reason an airport feels "烂大街")
+- **The "burned IP" signal** — how many clients secretly share one exit IP (the real reason an IP keeps getting flagged)
 - **TCP latency** per server, median of 3 tries
 - **A shareable report card** — standalone HTML, optionally screenshotted to PNG by your local Chromium
 
