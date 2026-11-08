@@ -60,6 +60,12 @@ function latencyColor(row) {
   return red(latencyPlain(row));
 }
 
+function probePlain(r) {
+  if (!r.probe) return "—";
+  if (r.probe.ok) return `✓ ${r.probe.exitIp || "ok"}`;
+  return `✗ ${clip(r.probe.err || "failed", 14)}`;
+}
+
 export function renderTerminal(model, { color = true } = {}) {
   const L = [];
   const { meta, summary, rows } = model;
@@ -78,7 +84,12 @@ export function renderTerminal(model, { color = true } = {}) {
         : ` · ⚠ 最多 ${summary.maxDup} 节点共用 1 个出口`
       : "";
   L.push(
-    `   节点 ${b(summary.nodes)} · 服务器 ${b(summary.servers)} · 独立出口 IP ${b(summary.uniqueIps)}${dupWarn}`,
+    `   节点 ${b(summary.nodes)} · 服务器 ${b(summary.servers)} · 独立出口 IP ${b(summary.uniqueIps)}${dupWarn}` +
+      (summary.probedTotal
+        ? summary.probedOk === summary.probedTotal
+          ? green(` · 实测可用 ${summary.probedOk}/${summary.probedTotal}`)
+          : red(` · 实测可用 ${summary.probedOk}/${summary.probedTotal}`)
+        : ""),
   );
 
   const avg = summary.avgScore ?? 0;
@@ -94,25 +105,35 @@ export function renderTerminal(model, { color = true } = {}) {
   if (summary.topClean?.length) L.push(d(`   最干净: ${summary.topClean.join(" · ")}`));
   L.push("");
 
-  const cols = { i: 4, name: 28, proto: 10, ip: 16, type: 10, lat: 7 };
+  const hasProbe = rows.some((r) => r.probe);
+  const cols = {
+    i: 4,
+    name: hasProbe ? 22 : 28,
+    proto: 10,
+    ip: 16,
+    type: 10,
+    lat: 7,
+    probe: hasProbe ? 19 : 0,
+  };
   const head =
     `${pad("#", cols.i)} ${pad("节点", cols.name)} ${pad("协议", cols.proto)} ` +
-    `${pad("出口 IP", cols.ip)} ${pad("类型", cols.type)} ${pad("延迟", cols.lat, "right")}  纯净度`;
+    `${pad("出口 IP", cols.ip)} ${pad("类型", cols.type)} ${pad("延迟", cols.lat, "right")}` +
+    (hasProbe ? ` ${pad("出口验证", cols.probe)}` : "") +
+    `  纯净度`;
   L.push(d("   " + head));
-  L.push(
-    d(
-      "   " +
-        "─".repeat(
-          cols.i + cols.name + cols.proto + cols.ip + cols.type + cols.lat + 11,
-        ),
-    ),
-  );
+  L.push(d("   " + "─".repeat(displayWidth(head) + 2)));
 
   rows.forEach((r, i) => {
     const name = clip(r.name, cols.name - 2);
     const ip = r.ip || "解析失败";
     const ipCell = r.ip ? ip : color ? red(ip) : ip;
     const lat = color ? latencyColor(r) : latencyPlain(r);
+    const probeP = probePlain(r);
+    const probeC = !r.probe
+      ? d("—")
+      : r.probe.ok
+        ? green(probeP)
+        : red(probeP);
     const scoreText =
       r.score == null ? "  — —" : `${String(r.score).padStart(3)} ${r.grade}`;
     const scoreCell =
@@ -120,7 +141,9 @@ export function renderTerminal(model, { color = true } = {}) {
     L.push(
       `   ${d(pad(String(i + 1), cols.i))} ${pad(name, cols.name)} ` +
         `${d(pad(r.proto, cols.proto))} ${padColor(ip, ipCell, cols.ip)} ` +
-        `${pad(r.type, cols.type)} ${padColor(latencyPlain(r), lat, cols.lat)}  ${scoreCell}`,
+        `${pad(r.type, cols.type)} ${padColor(latencyPlain(r), lat, cols.lat)}` +
+        (hasProbe ? ` ${padColor(probeP, probeC, cols.probe)}` : "") +
+        `  ${scoreCell}`,
     );
   });
 
@@ -144,6 +167,7 @@ export function buildReportHtml(model) {
   const { meta, summary, rows } = model;
   const avg = summary.avgScore ?? 0;
   const ringColor = avg >= 75 ? "#3fb96f" : avg >= 60 ? "#d9a13c" : "#d95c4a";
+  const hasProbe = rows.some((r) => r.probe);
   const rowsHtml = rows
     .map(
       (r, i) => `
@@ -156,6 +180,7 @@ export function buildReportHtml(model) {
         <td class="isp" title="${esc(r.isp)}">${esc(clip(r.isp || "", 22))}</td>
         <td><span class="tag t-${r.type === "机房" ? "dc" : r.type === "移动" ? "mo" : "rs"}">${esc(r.type)}</span></td>
         <td class="lat">${r.latencyMs == null ? "—" : r.latencyMs + "ms"}</td>
+        ${hasProbe ? `<td class="pr ${r.probe.ok ? "p-ok" : "p-bad"}">${esc(r.probe.ok ? `✓ ${r.probe.exitIp || "ok"}` : `✗ ${r.probe.err || "failed"}`)}</td>` : ""}
         <td class="sc${r.score == null ? "" : ` s-${esc(r.grade)}`}">${r.score == null ? "—" : `${r.score} <b>${esc(r.grade)}</b>`}</td>
       </tr>`,
     )
@@ -193,6 +218,8 @@ export function buildReportHtml(model) {
   td { padding: 7px 10px; border-bottom: 1px solid #1a212b; white-space: nowrap; }
   tr:hover td { background: #151b24; }
   .idx, .lat, .sc { text-align: right; } .idx { color: #7d8590; }
+  .pr { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; }
+  .p-ok { color: #3fb96f; } .p-bad { color: #d95c4a; }
   .proto { color: #7d8590; }
   .ip { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
   .isp, .name { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
@@ -219,11 +246,12 @@ export function buildReportHtml(model) {
       <span class="chip">家宽 <b>${summary.residential}</b></span>
       <span class="chip">机房 <b>${summary.hosting}</b></span>
       <span class="chip">移动 <b>${summary.mobile}</b></span>
+      ${summary.probedTotal ? `<span class="chip${summary.probedOk < summary.probedTotal ? " warn" : ""}">实测可用 <b>${summary.probedOk}/${summary.probedTotal}</b></span>` : ""}
       ${summary.failed ? `<span class="chip warn">解析失败 <b>${summary.failed}</b></span>` : ""}
     </div>
   </div>
   <table>
-    <thead><tr><th>#</th><th>节点</th><th>协议</th><th>出口 IP</th><th>国家</th><th>ISP</th><th>类型</th><th class="lat">延迟</th><th class="sc">纯净度</th></tr></thead>
+    <thead><tr><th>#</th><th>节点</th><th>协议</th><th>出口 IP</th><th>国家</th><th>ISP</th><th>类型</th><th class="lat">延迟</th>${hasProbe ? "<th class=\"lat\">出口验证</th>" : ""}<th class="sc">纯净度</th></tr></thead>
     <tbody>${rowsHtml}
     </tbody>
   </table>

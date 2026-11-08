@@ -20,6 +20,7 @@ import {
   diffHistory,
   defaultHistoryDir,
 } from "./history.js";
+import { probeNode, probeSupported } from "./probe.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -54,6 +55,7 @@ function usage(code = 0) {
   --png <file>         额外用本机 Chromium 截成 PNG（需已安装）
   --json <file|->      JSON 输出到文件或 stdout
   --sort <key>         score | order (默认 order, 按订阅原序)
+  --probe              出口验证：真实穿透 http/socks5 节点，验证可用性与实际出口 IP
   --no-latency         跳过 TCP 延迟测量
   --timeout <ms>       单项超时 (默认 3000)
   --conc <n>           并发数 (默认 8)
@@ -168,19 +170,66 @@ async function buildSubModel(source, flags) {
     step("延迟测量完成");
   }
 
-  // dupCount: nodes sharing the same exit IP (the "burned IP" signal).
+  // Exit verification (--probe): real traffic through proxy-capable nodes.
+  // Keyed by host:port:username — same server with different credentials is
+  // a different exit (the brd-style pinned-ISP case).
+  const probeMap = new Map();
+  if (flags.probe) {
+    const probeable = nodes.filter(probeSupported);
+    if (probeable.length) {
+      step(`出口验证 ${probeable.length} 项（真实穿透代理）…`);
+      const uniq = new Map();
+      for (const n of probeable) {
+        uniq.set(`${n.host}:${n.port}:${n.username || ""}`, n);
+      }
+      await pool([...uniq.values()], Number(flags.conc) || 8, async (n) => {
+        const key = `${n.host}:${n.port}:${n.username || ""}`;
+        probeMap.set(
+          key,
+          await probeNode(n, {
+            timeout: Math.max(8000, (Number(flags.timeout) || 3000) * 2),
+          }),
+        );
+      });
+      const okN = [...probeMap.values()].filter((p) => p.ok).length;
+      step(`出口验证完成 ${okN}/${probeable.length}`);
+    } else {
+      step("本订阅没有可穿透验证的协议（http/socks5），跳过出口验证");
+    }
+  }
+
+  // The effective exit: verified exit when probed, else the resolved IP.
+  const effIpOf = (n) => {
+    const p = probeMap.get(`${n.host}:${n.port}:${n.username || ""}`);
+    return p?.ok ? p.exitIp : hostMap.get(n.host) || null;
+  };
+
+  // Purity must describe the real exit — credential-pinned proxies resolve
+  // their server to a mere gateway, so check whatever exits we have not
+  // measured yet.
+  const extraIps = [...new Set(nodes.map(effIpOf).filter(Boolean))].filter(
+    (ip) => !results.has(ip),
+  );
+  if (extraIps.length) {
+    step(`补测 ${extraIps.length} 个实测出口 IP 的纯净度…`);
+    const more = await checkIps(extraIps, { provider, token: flags.token });
+    more.forEach((v, k) => results.set(k, v));
+  }
+
+  // dupCount: nodes sharing the same effective exit IP (the "burned" signal).
   const ipDup = new Map();
   for (const n of nodes) {
-    const ip = hostMap.get(n.host);
+    const ip = effIpOf(n);
     if (ip) ipDup.set(ip, (ipDup.get(ip) || 0) + 1);
   }
 
   let rows = nodes.map((n, idx) => {
-    const ip = hostMap.get(n.host);
+    const ip = effIpOf(n);
     const info = ip ? results.get(ip) : null;
     const dupCount = ip ? ipDup.get(ip) || 1 : 1;
     const scored = purityScore(info, { dupCount });
     const lat = latencyMap.get(`${n.host}:${n.port}`);
+    const probe = probeMap.get(`${n.host}:${n.port}:${n.username || ""}`) || null;
     return {
       idx,
       name: n.name,
@@ -203,6 +252,15 @@ async function buildSubModel(source, flags) {
       note: info?.ok ? gradeOf(scored.score).note : "未测得",
       reasons: info?.ok ? scored.reasons : [],
       resolved: !!ip,
+      // Credentials never make it into rows — only the verdict does.
+      probe: probe
+        ? {
+            ok: !!probe.ok,
+            exitIp: probe.exitIp || null,
+            ms: probe.ms ?? null,
+            err: probe.err || null,
+          }
+        : null,
     };
   });
 
@@ -211,10 +269,13 @@ async function buildSubModel(source, flags) {
     rows = [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
   const scored = rows.filter((r) => r.score != null);
+  const probed = rows.filter((r) => r.probe);
+  const probeOk = probed.filter((r) => r.probe.ok).length;
+  const noExit = rows.filter((r) => !r.ip).length;
   const summary = {
     nodes: rows.length,
     servers: byHost.size,
-    uniqueIps: ips.length,
+    uniqueIps: [...new Set(rows.map((r) => r.ip).filter(Boolean))].length,
     maxDup: Math.max(1, ...ipDup.values()),
     avgScore: scored.length
       ? Math.round(scored.reduce((s, r) => s + r.score, 0) / scored.length)
@@ -222,16 +283,22 @@ async function buildSubModel(source, flags) {
     residential: scored.filter((r) => r.type === "家宽/企业").length,
     hosting: scored.filter((r) => r.type === "机房").length,
     mobile: scored.filter((r) => r.type === "移动").length,
-    failed: unresolved.length,
+    failed: noExit,
+    probedOk: probeOk,
+    probedTotal: probed.length,
     topClean: [...scored]
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
       .map((r) => `${clipName(r.name)} (${r.score})`),
     notes: [
       "纯净度评分透明可解释：机房 -35 · 被标记为代理 -20 · 同出口节点每多一个 -3 (封顶 -15) · 移动 +5",
-      ...(unresolved.length
-        ? [`${unresolved.length} 个服务器域名解析失败，未参与纯净度评分`]
+      ...(probed.length
+        ? [
+            `出口验证为真实穿透：凭据锁定型出口的纯净度按实测出口 IP 计分`,
+            `实测可用 ${probeOk}/${probed.length}${probeOk < probed.length ? "（失败多为限流/凭据/协议问题，几分钟后可重试）" : ""}`,
+          ]
         : []),
+      ...(noExit ? [`${noExit} 个节点无有效出口，未参与纯净度评分`] : []),
     ],
   };
 

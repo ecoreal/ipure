@@ -58,12 +58,17 @@ function nodeFromFields(fields) {
   const name = get("name") || "";
   const type = (get("type") || "clash").toLowerCase();
   if (!server || !Number.isInteger(port) || port <= 0 || port > 65535) return null;
-  return {
+  const node = {
     name: name || `${server}:${port}`,
     proto: type,
     host: String(server).toLowerCase(),
     port,
   };
+  // Credentials ride along in memory for exit verification — they are never
+  // copied into report rows or JSON output.
+  if (get("username") !== undefined) node.username = get("username");
+  if (get("password") !== undefined) node.password = get("password");
+  return node;
 }
 
 export function parseClashProxies(body) {

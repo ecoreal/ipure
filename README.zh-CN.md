@@ -15,6 +15,7 @@ IP 质量网页工具很好用 —— 直到全论坛的人共用一个 API 配�
 
 - **每个出口 IP 的纯净度分 0–100**：机房/代理/风险分扣分、移动加分，每一分都能说清来龙去脉
 - **重复出口指数**：多少 IP 在偷偷共用同一个出口 —— 这就是 IP 总被标记的真相
+- **出口验证**：`--probe` 真实穿透 `http`/`socks5` 节点（含带凭据的），确认节点此刻是否可用，并按**实测出口 IP**（而非网关）计纯净度 —— 纯净度 ≠ 可用性，网页工具根本碰不到你的节点
 - **TCP 延迟**：每台服务器取 3 次连接的中位数
 - **分数历史**：`ipure watch` 每次运行保存快照并与上次对比；配上系统定时任务，就是一条 IP 质量曲线
 - **可分享的报告卡片**：单文件 HTML，可选调用本机 Chromium 截成 PNG
@@ -44,6 +45,9 @@ ipure sub - < nodes.txt --json -
 # 长期跟踪质量 —— 每次运行保存快照并对比
 ipure watch ./nodes.txt --history-dir ~/.ipure/history
 
+# 验证节点真实可用性并按实测出口计分（http/socks5）
+ipure sub ./isp-proxies.yaml --probe --html report.html --png report.png
+
 # 直接检测一批 IP（也支持域名）
 ipure check 8.8.8.8 1.1.1.1
 ipure check 73.0.0.1 223.5.5.5 --json out.json
@@ -57,6 +61,7 @@ cat ips.txt | ipure check
 | `--png <file>` | 用本机 Chromium 截成 PNG（`IPURE_CHROME` 可指定浏览器路径） |
 | `--json <file\|->` | JSON 输出 |
 | `--sort score` | 按纯净度排序（默认按订阅原序） |
+| `--probe` | 真实穿透验证 `http`/`https`/`socks5` 节点的可用性与实际出口 |
 | `--no-latency` | 跳过 TCP 延迟测量 |
 | `--timeout <ms>` / `--conc <n>` | 单项超时（默认 3000）/ 并发（默认 8） |
 | `--history-dir <dir>` / `--no-history` | `watch` 快照目录（默认 `~/.ipure/history`）/ 不读写快照 |
@@ -96,7 +101,7 @@ cat ips.txt | ipure check
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 61 个测试，node:test，不需要网络
+npm test          # 69 个测试，node:test，不需要网络
 ```
 
 发布：推送 `v*` 标签后 CI 自动发布 npm（需配置 `NPM_TOKEN` secret）。

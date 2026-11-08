@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — 2026-11-08
+
+- **`--probe` exit verification** — sends real traffic through `http`/`https`/
+  `socks5` nodes (raw-socket HTTP forward proxy and a minimal SOCKS5 client,
+  both with optional auth) and reports whether each node actually works today,
+  with the **actual exit IP**. Purity is then scored against the verified exit —
+  credential-pinned ISP proxies are judged by the pinned exit, not the gateway.
+  Web-based checkers can't do this at all; this closes the "purity ≠
+  availability" gap (a node can be spotless and still be rate-limited right now).
+- Probes are keyed by `host:port:username` — same server with different
+  credentials is a different exit. Credentials live in memory only and never
+  reach reports or JSON.
+- 8 new tests with real local mock servers (69 total).
+
 ## 0.3.0 — 2026-11-08
 
 - **`ipure watch`** — same pipeline as `sub`, plus a persistent snapshot per
