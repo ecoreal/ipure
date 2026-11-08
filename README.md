@@ -35,6 +35,7 @@ IPs on stdin) and get:
 - **Purity score 0–100** per exit IP — datacenter/proxy/risk penalties, mobile bonus, fully itemised
 - **The "burned IP" signal** — how many clients secretly share one exit IP (the real reason an IP keeps getting flagged)
 - **TCP latency** per server, median of 3 tries
+- **Score history** — `ipure watch` snapshots every run and diffs scores against the previous one; wire it to a cron/systemd timer and you get an IP quality curve
 - **A shareable report card** — standalone HTML, optionally screenshotted to PNG by your local Chromium
 
 No account, no config, zero npm dependencies, one file of Node.
@@ -59,6 +60,9 @@ ipure sub "https://provider.example/subscribe?token=xxx"
 ipure sub ./clash-overview.txt --html report.html --png report.png
 ipure sub - < nodes.txt --json -
 
+# Track quality over time — snapshot + diff on every run
+ipure watch ./clash-overview.txt --history-dir ~/.ipure/history
+
 # Check IPs (or hostnames) directly
 ipure check 8.8.8.8 1.1.1.1
 ipure check 73.0.0.1 223.5.5.5 --json out.json
@@ -74,6 +78,7 @@ cat suspicious-ips.txt | ipure check
 | `--sort score` | sort by purity instead of subscription order |
 | `--no-latency` | skip TCP ping |
 | `--timeout <ms>` / `--conc <n>` | per-op timeout (default 3000) / concurrency (default 8) |
+| `--history-dir <dir>` / `--no-history` | `watch` snapshot dir (default `~/.ipure/history`) / disable snapshots |
 | `--no-color` | plain output |
 
 ## The score, itemised
@@ -111,12 +116,13 @@ parsed and discarded.
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 54 tests, node:test, no network needed
+npm test          # 61 tests, node:test, no network needed
 ```
+
+Releases: push a `v*` tag and CI publishes to npm (needs the `NPM_TOKEN` secret).
 
 ## Roadmap
 
-- [ ] `ipure watch` — re-check nightly, diff the scores
 - [ ] Blacklist database signal (Spamhaus & friends)
 - [ ] Native/broadcast IP detection via RIR data
 

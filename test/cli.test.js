@@ -43,6 +43,12 @@ test("sub with no source fails", () => {
   assert.ok(r.stderr.includes("sub 需要一个订阅源"));
 });
 
+test("watch with no source fails", () => {
+  const r = run(["watch"]);
+  assert.equal(r.status, 1);
+  assert.ok(r.stderr.includes("watch 需要一个订阅源"));
+});
+
 test("sub with a missing file fails cleanly (no stack trace)", () => {
   const r = run(["sub", "/nonexistent/sub.txt"]);
   assert.equal(r.status, 1);

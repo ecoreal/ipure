@@ -14,6 +14,12 @@ import { purityScore, gradeOf, typeOf } from "./score.js";
 import { tcpPing, pool } from "./latency.js";
 import { renderTerminal, buildReportHtml, estimateHtmlHeight } from "./report.js";
 import { htmlToPng } from "./png.js";
+import {
+  loadHistory,
+  saveHistory,
+  diffHistory,
+  defaultHistoryDir,
+} from "./history.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -29,6 +35,7 @@ const VALUE_FLAGS = new Set([
   "--conc",
   "--sort",
   "--tries",
+  "--history-dir",
 ]);
 
 function usage(code = 0) {
@@ -37,6 +44,8 @@ function usage(code = 0) {
 用法:
   ipure sub <订阅源>               体检一整个订阅源（URI 列表 / base64 / Clash YAML）
                                    → 出口 IP 纯净度 → 延迟 → 重复出口
+  ipure watch <订阅源>             同 sub，但每次运行保存快照并对比上一次的分数变化，
+                                   配合系统定时任务就是一条 IP 质量曲线
   ipure check <ip或域名...>        直接检测一批 IP（也可从 stdin 管道输入）
 
 选项:
@@ -49,11 +58,14 @@ function usage(code = 0) {
   --timeout <ms>       单项超时 (默认 3000)
   --conc <n>           并发数 (默认 8)
   --no-color           关闭颜色
+  --history-dir <dir>  watch 快照目录 (默认 ~/.ipure/history)
+  --no-history         watch 不读写快照
   -h, --help           帮助
   -v, --version        版本
 
 示例:
   ipure sub "https://example.com/api/v1/client/subscribe?token=xxx" --html report.html
+  ipure watch ./clash.yaml --png watch.png   # 配合 cron / systemd timer 定期跑
   cat nodes.txt | ipure check
   ipure check 8.8.8.8 1.1.1.1 --json -`);
   process.exit(code);
@@ -103,9 +115,7 @@ function safeFileName(s) {
 
 // ---------------------------------------------------------------- sub command
 
-async function cmdSub(source, flags) {
-  if (!source) fail("sub 需要一个订阅源：URL、本地文件路径或 - (stdin)");
-
+async function buildSubModel(source, flags) {
   step("拉取订阅…");
   const { nodes, stats, hostMap, byHost } = await loadSubscription(source, {
     conc: Number(flags.conc) || 8,
@@ -223,12 +233,39 @@ async function cmdSub(source, flags) {
     ],
   };
 
-  const model = {
+  return {
     meta: { source, generatedAt: now(), provider },
     summary,
     rows,
   };
-  emit(model, flags, `ipure-report-${safeFileName(source)}`);
+}
+
+const sgn = (n) => (n > 0 ? `+${n}` : `${n}`);
+
+function diffNotes(diff) {
+  return [
+    `与上次对比 (${diff.prevAt}): 平均分 ${sgn(diff.avgDelta)} · 改善 ${diff.better.length} · 恶化 ${diff.worse.length} · 新增 ${diff.newIps.length} · 消失 ${diff.goneIps.length}`,
+    ...diff.changes.map((c) => `${c.ip}: ${c.from} → ${c.to} (${sgn(c.delta)})`),
+  ];
+}
+
+async function cmdSub(source, flags) {
+  if (!source) fail("sub 需要一个订阅源：URL、本地文件路径或 - (stdin)");
+  emit(await buildSubModel(source, flags), flags, `ipure-report-${safeFileName(source)}`);
+}
+
+async function cmdWatch(source, flags) {
+  if (!source) fail("watch 需要一个订阅源：URL、本地文件路径或 - (stdin)");
+  const model = await buildSubModel(source, flags);
+  if (!flags["no-history"]) {
+    const dir = flags["history-dir"] || defaultHistoryDir();
+    const diff = diffHistory(loadHistory(source, dir), model);
+    if (diff) model.summary.notes.unshift(...diffNotes(diff));
+    else step("首次快照已保存，下次 watch 运行开始对比分数变化");
+    const file = saveHistory(source, model, dir);
+    process.stderr.write(`▸ 快照已保存 ${file}\n`);
+  }
+  emit(model, flags, `ipure-watch-${safeFileName(source)}`);
 }
 
 function clipName(s) {
@@ -368,6 +405,7 @@ const cmd = pos[0];
 
 try {
   if (cmd === "sub") await cmdSub(pos[1], flags);
+  else if (cmd === "watch") await cmdWatch(pos[1], flags);
   else if (cmd === "check") await cmdCheck(pos.slice(1), flags);
   else if (!cmd) usage(1);
   else fail(`未知命令: ${cmd}`);

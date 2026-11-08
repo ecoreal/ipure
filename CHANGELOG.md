@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-11-08
+
+- **`ipure watch`** — same pipeline as `sub`, plus a persistent snapshot per
+  source (`~/.ipure/history/`, `--history-dir` to override): every run prints a
+  score diff against the previous one (improved / worsened / new / gone IPs).
+  Pair it with a cron or systemd timer and you have an IP quality curve.
+- Release automation: `.github/workflows/release.yml` publishes to npm on
+  `v*` tags once the `NPM_TOKEN` secret is configured.
+- 7 new tests (61 total).
+
 ## 0.2.0 — 2026-11-08
 
 - **Clash/Mihomo YAML subscriptions** are now parsed — targeted zero-dependency

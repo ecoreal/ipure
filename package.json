@@ -1,6 +1,6 @@
 {
   "name": "ipure",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Batch IP purity check from your terminal — exit-IP scoring, duplicate-exit detection, TCP latency, shareable report cards. Zero dependencies.",
   "license": "MIT",
   "author": "ecoreal",

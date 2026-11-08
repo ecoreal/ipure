@@ -16,6 +16,7 @@ IP 质量网页工具很好用 —— 直到全论坛的人共用一个 API 配�
 - **每个出口 IP 的纯净度分 0–100**：机房/代理/风险分扣分、移动加分，每一分都能说清来龙去脉
 - **重复出口指数**：多少 IP 在偷偷共用同一个出口 —— 这就是 IP 总被标记的真相
 - **TCP 延迟**：每台服务器取 3 次连接的中位数
+- **分数历史**：`ipure watch` 每次运行保存快照并与上次对比；配上系统定时任务，就是一条 IP 质量曲线
 - **可分享的报告卡片**：单文件 HTML，可选调用本机 Chromium 截成 PNG
 
 无需注册、无需配置、零 npm 依赖、一个 Node 文件。
@@ -40,6 +41,9 @@ ipure sub "https://provider.example/subscribe?token=xxx"
 ipure sub ./nodes.txt --html report.html --png report.png
 ipure sub - < nodes.txt --json -
 
+# 长期跟踪质量 —— 每次运行保存快照并对比
+ipure watch ./nodes.txt --history-dir ~/.ipure/history
+
 # 直接检测一批 IP（也支持域名）
 ipure check 8.8.8.8 1.1.1.1
 ipure check 73.0.0.1 223.5.5.5 --json out.json
@@ -55,6 +59,7 @@ cat ips.txt | ipure check
 | `--sort score` | 按纯净度排序（默认按订阅原序） |
 | `--no-latency` | 跳过 TCP 延迟测量 |
 | `--timeout <ms>` / `--conc <n>` | 单项超时（默认 3000）/ 并发（默认 8） |
+| `--history-dir <dir>` / `--no-history` | `watch` 快照目录（默认 `~/.ipure/history`）/ 不读写快照 |
 | `--no-color` | 纯文本输出 |
 
 ## 评分算法，全部摊开
@@ -91,12 +96,13 @@ cat ips.txt | ipure check
 
 ```bash
 git clone https://github.com/ecoreal/ipure && cd ipure
-npm test          # 54 个测试，node:test，不需要网络
+npm test          # 61 个测试，node:test，不需要网络
 ```
+
+发布：推送 `v*` 标签后 CI 自动发布 npm（需配置 `NPM_TOKEN` secret）。
 
 ## 路线图
 
-- [ ] `ipure watch` —— 定时复检，对比分数变化
 - [ ] 黑名单库信号（Spamhaus 等）
 - [ ] 基于 RIR 数据的原生/广播 IP 判定
 
